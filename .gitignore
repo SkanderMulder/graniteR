@@ -1,6 +1,84 @@
+# R
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+.Rprofile
 *.Rproj
+.httr-oauth
+
+# Build artifacts
 inst/doc
+/doc/
+/Meta/
+*.tar.gz
+*.zip
+
+# Package checks
+*.Rcheck/
+*.o
+*.so
+*.dll
+
+# Vignette outputs
+vignettes/*.html
+vignettes/*.pdf
+vignettes/*_cache/
+vignettes/*_files/
+
+# pkgdown
+docs/
+_site/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+*.cache
+
+# Data (large files)
+*.csv.gz
+*.parquet
+*.feather
+
+# Credentials and secrets
+.env
+.env.local
+credentials.json
+*.key
+*.pem
+
+# AI assistant artifacts
+.claude/
+.cursor/
+.aider*
+.copilot/
