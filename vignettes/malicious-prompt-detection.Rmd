@@ -109,7 +109,7 @@ prompts |>
 prompts |>
   filter(label == 0) |>
   select(text) |>
-  head(3)
+  head(10)
 ```
 
 ## Data Preparation
@@ -126,13 +126,11 @@ train_idx <- sample(n, size = floor(0.8 * n))
 train_data <- prompts[train_idx, ]
 test_data <- prompts[-train_idx, ]
 
-cat("Training samples:", nrow(train_data), "\n")
-cat("Test samples:", nrow(test_data), "\n")
 ```
 
 ## Training a Classifier
 
-Create and train a binary classifier for malicious prompt detection:
+Create and train a binary classifier for malicious prompt detection:                           
 
 ```{r}
 # Create classifier
@@ -149,7 +147,7 @@ classifier <- classifier |>
     learning_rate = 2e-5,
     validation_split = 0.2
   )
-```
+                                                 
 
 The training process displays loss and validation accuracy for each epoch. Expect to see improvement over epochs as the model learns to distinguish malicious from benign prompts.
 

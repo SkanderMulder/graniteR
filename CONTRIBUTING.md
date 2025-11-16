@@ -15,7 +15,7 @@ Thanks for considering contributing to graniteR!
 See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup instructions.
 
 ## Code Standards
-
+                                                                                                                                                                                                                                                
 - Follow the tidyverse style guide
 - Use native R pipe `|>` instead of magrittr pipe
 - Write tests for new features
