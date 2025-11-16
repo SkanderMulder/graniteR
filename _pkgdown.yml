@@ -2,6 +2,22 @@ url: https://skandermulder.github.io/graniteR
 template:
   bootstrap: 5
 
+home:
+  sidebar:
+    structure: [links, license, community, citation, authors, dev]
+
+navbar:
+  title: ~
+  type: default
+  left:
+  - icon: fa-home
+    href: index.html
+  right:
+  - icon: fa-github
+    href: https://github.com/skandermulder/graniteR
+
+logo: man/figures/logo.png
+
 reference:
 - title: Core Functions
   desc: Main functions for working with Granite models
@@ -22,7 +38,6 @@ reference:
   - granite_train
   - granite_predict
 
-navbar:
   structure:
     left: [intro, reference, articles]
     right: [github]

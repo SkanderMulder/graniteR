@@ -1,4 +1,4 @@
-# graniteR
+# graniteR <img src="man/figures/logo.png" align="right" height="139" />
 
 R interface to IBM Granite embedding models via Python's transformers library.
 
