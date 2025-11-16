@@ -2,21 +2,24 @@
 transformers <- NULL
 torch <- NULL
 
-.onAttach <- function(libname, pkgname) {
-  # Try to load Python dependencies
+.onLoad <- function(libname, pkgname) {
+  # Initialize Python modules - use .onLoad instead of .onAttach
+  # so the bindings are unlocked when we assign
   if (reticulate::py_available(initialize = TRUE)) {
     tryCatch({
-      transformers <<- reticulate::import("transformers", delay_load = TRUE)
-      torch <<- reticulate::import("torch", delay_load = TRUE)
+      transformers <<- reticulate::import("transformers", delay_load = FALSE)
+      torch <<- reticulate::import("torch", delay_load = FALSE)
     }, error = function(e) {
-      packageStartupMessage(
-        "Python dependencies not found. ",
-        "Run install_pyenv() to set up."
-      )
+      # Silently fail - we'll show message in .onAttach
     })
-  } else {
+  }
+}
+
+.onAttach <- function(libname, pkgname) {
+  # Show startup messages
+  if (is.null(transformers) || is.null(torch)) {
     packageStartupMessage(
-      "Python not configured. ",
+      "Python dependencies not found. ",
       "Run install_pyenv() to set up."
     )
   }

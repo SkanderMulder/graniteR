@@ -38,45 +38,45 @@ granite_model <- function(
   }
 
   # Suppress transformers warnings during model loading
-  old_log_level <- tryCatch({
-    py_warnings <- reticulate::import("warnings", convert = FALSE)
-    transformers_logging <- reticulate::import("transformers.utils.logging", convert = FALSE)
+  # Only suppress if we can access the logging module
+  old_log_level <- NULL
+  if (!is.null(transformers)) {
+    old_log_level <- tryCatch({
+      transformers_logging <- transformers$utils$logging
+      py_warnings <- reticulate::import("warnings", convert = FALSE)
 
-    old_level <- transformers_logging$get_verbosity()
-    transformers_logging$set_verbosity_error()
+      old_level <- transformers_logging$get_verbosity()
+      transformers_logging$set_verbosity_error()
+      py_warnings$filterwarnings("ignore", message = ".*were not initialized.*")
 
-    # Also suppress Python warnings about model weights
-    py_warnings$filterwarnings("ignore", message = ".*were not initialized.*")
+      old_level
+    }, error = function(e) NULL)
+  }
 
-    old_level
-  }, error = function(e) NULL)
-
-  model <- suppressWarnings({
-    switch(
-      task,
-      embedding = transformers$AutoModel$from_pretrained(model_name),
-      classification = {
-        if (is.null(num_labels)) {
-          stop("num_labels must be specified for classification tasks")
-        }
-        transformers$AutoModelForSequenceClassification$from_pretrained(
-          model_name,
-          num_labels = as.integer(num_labels)
-        )
-      },
-      regression = {
-        transformers$AutoModelForSequenceClassification$from_pretrained(
-          model_name,
-          num_labels = 1L
-        )
+  model <- switch(
+    task,
+    embedding = transformers$AutoModel$from_pretrained(model_name),
+    classification = {
+      if (is.null(num_labels)) {
+        stop("num_labels must be specified for classification tasks")
       }
-    )
-  })
+      transformers$AutoModelForSequenceClassification$from_pretrained(
+        model_name,
+        num_labels = as.integer(num_labels)
+      )
+    },
+    regression = {
+      transformers$AutoModelForSequenceClassification$from_pretrained(
+        model_name,
+        num_labels = 1L
+      )
+    }
+  )
 
   # Restore logging level
   if (!is.null(old_log_level)) {
     tryCatch({
-      transformers_logging <- reticulate::import("transformers.utils.logging", convert = FALSE)
+      transformers_logging <- transformers$utils$logging
       transformers_logging$set_verbosity(old_log_level)
 
       py_warnings <- reticulate::import("warnings", convert = FALSE)
