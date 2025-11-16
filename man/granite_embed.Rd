@@ -4,13 +4,7 @@
 \alias{granite_embed}
 \title{Generate embeddings for text data}
 \usage{
-granite_embed(
-  data,
-  text_col = text,
-  model = NULL,
-  tokenizer = NULL,
-  batch_size = 32
-)
+granite_embed(data, text_col, model = NULL, tokenizer = NULL, batch_size = 32)
 }
 \arguments{
 \item{data}{A data frame or tibble containing text}
@@ -30,9 +24,12 @@ Data frame with added embeddings column
 Generate embeddings for text data
 }
 \examples{
-\dontrun{
+\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
 library(dplyr)
-data <- tibble(text = c("Hello world", "Test sentence"))
-data |> granite_embed()
+data <- tibble::tibble(text = c("Hello world", "Test sentence"))
+data |> granite_embed(text_col = text)
+\dontshow{\}) # examplesIf}
 }
+\seealso{
+\code{\link{granite_model}}, \code{\link{granite_tokenizer}}
 }

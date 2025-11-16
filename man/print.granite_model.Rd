@@ -6,6 +6,11 @@
 \usage{
 \method{print}{granite_model}(x, ...)
 }
+\arguments{
+\item{x}{granite_model object to print}
+
+\item{...}{Additional arguments passed to print}
+}
 \description{
 Print method for granite_model
 }

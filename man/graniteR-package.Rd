@@ -6,10 +6,26 @@
 \alias{graniteR-package}
 \title{graniteR: Interface to IBM Granite Embedding Models}
 \description{
-\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
-
-Provides a pipe-friendly interface to IBM's Granite embedding models via Python's transformers library. Supports sentence embeddings, text classification, and fine-tuning workflows following tidyverse conventions.
+Provides a pipe-friendly interface to IBM's Granite embedding models
+via Python's transformers library. Key features include:
+\itemize{
+  \item Generate sentence embeddings with \code{granite_embed()}
+  \item Train text classifiers with \code{granite_classifier()}
+  \item Fine-tune models with \code{granite_train()}
+  \item Make predictions with \code{granite_predict()}
 }
+}
+\section{Installation}{
+
+The package requires Python dependencies. Use \code{install_granite()}
+or \code{install_granite_uv()} for faster setup.
+}
+
+\section{Getting Started}{
+
+See the "Getting Started" vignette: \code{vignette("getting-started", package = "graniteR")}
+}
+
 \seealso{
 Useful links:
 \itemize{
@@ -22,4 +38,3 @@ Useful links:
 \strong{Maintainer}: Skander Tahar Mulder \email{skandermulder@gmail.com}
 
 }
-\keyword{internal}

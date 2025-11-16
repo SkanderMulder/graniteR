@@ -6,6 +6,11 @@
 \usage{
 \method{print}{granite_tokenizer}(x, ...)
 }
+\arguments{
+\item{x}{granite_tokenizer object to print}
+
+\item{...}{Additional arguments passed to print}
+}
 \description{
 Print method for granite_tokenizer
 }

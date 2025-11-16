@@ -32,7 +32,7 @@ granite_classifier <- function(
     label_col_quo <- rlang::enquo(label_col)
     labels <- dplyr::pull(data, !!label_col_quo)
     num_labels <- length(unique(labels))
-    message("Inferred num_labels = ", num_labels, " from data")
+    cli::cli_alert_info("Inferred num_labels = {num_labels} from data")
   }
   
   if (is.null(num_labels)) {
@@ -138,10 +138,9 @@ granite_train <- function(
   )
 
   model$train()
-  
+
   if (verbose) {
-    message(sprintf("Training on %d samples, validating on %d samples",
-                    length(train_texts), length(val_texts)))
+    cli::cli_alert_info("Training on {length(train_texts)} samples, validating on {length(val_texts)} samples")
   }
 
   for (epoch in seq_len(epochs)) {
@@ -175,17 +174,15 @@ granite_train <- function(
     }
 
     if (verbose) {
-      val_msg <- if (length(val_texts) > 0) {
+      if (length(val_texts) > 0) {
         val_accuracy <- evaluate_classifier(
           model, tokenizer, val_texts, val_labels,
           batch_size, classifier$model$device
         )
-        sprintf("Epoch %d/%d - Loss: %.4f - Val Accuracy: %.4f",
-                epoch, epochs, total_loss / n_batches, val_accuracy)
+        cli::cli_alert_info("Epoch {epoch}/{epochs} - Loss: {round(total_loss / n_batches, 4)} - Val Accuracy: {round(val_accuracy, 4)}")
       } else {
-        sprintf("Epoch %d/%d - Loss: %.4f", epoch, epochs, total_loss / n_batches)
+        cli::cli_alert_info("Epoch {epoch}/{epochs} - Loss: {round(total_loss / n_batches, 4)}")
       }
-      message(val_msg)
     }
   }
 

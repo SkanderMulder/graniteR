@@ -61,8 +61,8 @@ classifier <- granite_classifier(num_labels = n_classes)
 classifier <- granite_train(
   classifier, 
   tickets, 
-  text, 
-  priority,
+  text_col = text, 
+  label_col = priority,
   epochs = 5,
   learning_rate = 2e-5,
   validation_split = 0.2
@@ -88,12 +88,12 @@ cat("\nNew tickets to classify:\n")
 print(new_tickets)
 
 # Get class predictions (returns predicted class as integer)
-predictions <- granite_predict(classifier, new_tickets, text, type = "class")
+predictions <- granite_predict(classifier, new_tickets, text_col = text, type = "class")
 cat("\nClass predictions (as integers):\n")
 print(predictions)
 
 # Get probability distributions across all classes
-probabilities <- granite_predict(classifier, new_tickets, text, type = "prob")
+probabilities <- granite_predict(classifier, new_tickets, text_col = text, type = "prob")
 cat("\nProbability distributions:\n")
 print(probabilities)
 
@@ -140,8 +140,8 @@ classifier_ordered <- granite_classifier(num_labels = 4)
 classifier_ordered <- granite_train(
   classifier_ordered, 
   tickets_factor, 
-  text, 
-  priority,
+  text_col = text, 
+  label_col = priority,
   epochs = 3
 )
 

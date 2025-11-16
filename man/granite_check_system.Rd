@@ -13,7 +13,7 @@ Invisibly returns a list with system information
 Checks Python environment, CUDA availability, and provides system information.
 }
 \examples{
-\dontrun{
+\dontshow{if (requireNamespace("reticulate")) withAutoprint(\{ # examplesIf}
 granite_check_system()
-}
+\dontshow{\}) # examplesIf}
 }

@@ -47,15 +47,20 @@ if (nzchar(Sys.getenv("RETICULATE_PYTHON"))) {
   }
 }
 
-# Check if transformers is available
-if (reticulate::py_available(initialize = TRUE)) {
-  if (!reticulate::py_module_available("transformers")) {
-    message("\n⚠️  transformers module not available. Tests requiring Python will be skipped.")
-    message("   To enable all tests, run: install_granite() or install_granite_uv()")
-  } else {
-    message("✓ Python modules ready: transformers, torch")
+# Helper function to skip tests if Python or modules are not available
+skip_if_no_python_or_modules <- function() {
+  if (!reticulate::py_available(initialize = TRUE)) {
+    testthat::skip("Python not available for testing")
   }
+  if (!reticulate::py_module_available("transformers")) {
+    testthat::skip("transformers Python module not available for testing")
+  }
+}
+
+# Announce whether tests will be skipped or not
+if (reticulate::py_available(initialize = TRUE) && reticulate::py_module_available("transformers")) {
+  message("✓ Python environment ready for tests (transformers found).")
 } else {
-  message("\n⚠️  Python not configured. Tests requiring Python will be skipped.")
-  message("   Set RETICULATE_PYTHON or run: ./setup_python.sh")
+  message("⚠️ Python dependencies not found. Tests requiring them will be skipped.")
+  message("   Run install_granite() to set up the Python environment.")
 }

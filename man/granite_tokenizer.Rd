@@ -16,7 +16,10 @@ A Granite tokenizer object
 Create a Granite tokenizer
 }
 \examples{
-\dontrun{
+\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
 tokenizer <- granite_tokenizer()
+\dontshow{\}) # examplesIf}
 }
+\seealso{
+\code{\link{granite_model}}
 }

@@ -12,7 +12,8 @@ granite_train(
   epochs = 3,
   batch_size = 8,
   learning_rate = 5e-05,
-  validation_split = 0.2
+  validation_split = 0.2,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -32,6 +33,8 @@ Can be integer, character, or factor.}
 \item{learning_rate}{Learning rate for optimizer}
 
 \item{validation_split}{Fraction of data to use for validation}
+
+\item{verbose}{Whether to print training progress (default: TRUE)}
 }
 \value{
 Updated classifier object with trained model
@@ -42,11 +45,11 @@ factor labels. Character and factor labels are automatically converted to
 integers (alphabetically for characters, by factor levels for factors).
 }
 \examples{
-\dontrun{
+\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
 library(dplyr)
 
 # Binary classification with integer labels
-data <- tibble(
+data <- tibble::tibble(
   text = c("positive example", "negative example"),
   label = c(0, 1)
 )
@@ -54,11 +57,14 @@ classifier <- granite_classifier(num_labels = 2) |>
   granite_train(data, text, label, epochs = 3)
 
 # Multi-class with character labels (auto-converted alphabetically)
-data_multi <- tibble(
+data_multi <- tibble::tibble(
   text = c("urgent issue", "minor bug", "question", "critical"),
   priority = c("high", "low", "medium", "critical")
 )
 classifier_multi <- granite_classifier(num_labels = 4) |>
   granite_train(data_multi, text, priority, epochs = 5)
+\dontshow{\}) # examplesIf}
 }
+\seealso{
+\code{\link{granite_classifier}}, \code{\link{granite_predict}}
 }

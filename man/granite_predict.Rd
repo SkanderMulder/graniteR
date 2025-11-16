@@ -7,7 +7,7 @@
 granite_predict(
   classifier,
   data,
-  text_col = text,
+  text_col,
   type = c("class", "prob"),
   batch_size = 32
 )
@@ -30,7 +30,11 @@ Data frame with predictions
 Make predictions with a Granite classifier
 }
 \examples{
-\dontrun{
-predictions <- granite_predict(classifier, new_data, text)
+\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+# Assuming 'classifier' is a trained model and 'new_data' is a tibble
+# predictions <- granite_predict(classifier, new_data, text_col = text)
+\dontshow{\}) # examplesIf}
 }
+\seealso{
+\code{\link{granite_classifier}}, \code{\link{granite_train}}
 }

@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE
+  eval = FALSE
 )
 ```
 
@@ -239,7 +239,7 @@ Simulate larger batch sizes with limited memory:
 
 The following benchmark compares the two approaches using a sample classification task:
 
-```{r benchmark, eval = TRUE, warning = FALSE, message = FALSE}
+```{r benchmark, warning = FALSE, message = FALSE}
 set.seed(42)
 
 # Create sample training data

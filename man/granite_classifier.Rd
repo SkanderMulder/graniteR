@@ -5,13 +5,20 @@
 \title{Create a Granite classifier}
 \usage{
 granite_classifier(
-  num_labels,
+  num_labels = NULL,
+  data = NULL,
+  label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
   device = "cpu"
 )
 }
 \arguments{
-\item{num_labels}{Number of output classes (e.g., 2 for binary, 4 for multi-class)}
+\item{num_labels}{Number of output classes (e.g., 2 for binary, 4 for multi-class).
+If NULL and data is provided, will be inferred from unique labels.}
+
+\item{data}{Optional training data frame to infer num_labels from}
+
+\item{label_col}{Optional label column name (unquoted) to infer num_labels from}
 
 \item{model_name}{Model identifier from Hugging Face Hub}
 
@@ -23,13 +30,18 @@ A Granite classifier object with model and tokenizer
 \description{
 Creates a text classifier using IBM's Granite embedding model. Supports both
 binary classification (2 classes) and multi-class classification (3+ classes).
+The number of classes can be specified explicitly or inferred from training data.
 }
 \examples{
-\dontrun{
-# Binary classification
+\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+# Explicit num_labels
 classifier <- granite_classifier(num_labels = 2)
 
-# Multi-class classification (e.g., priority levels)
-classifier <- granite_classifier(num_labels = 4)
+# Infer from data
+data <- tibble::tibble(text = c("a", "b"), label = c("high", "low"))
+classifier <- granite_classifier(data = data, label_col = label)
+\dontshow{\}) # examplesIf}
 }
+\seealso{
+\code{\link{granite_train}}, \code{\link{granite_predict}}
 }

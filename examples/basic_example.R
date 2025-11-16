@@ -18,7 +18,7 @@ data <- tibble(
 )
 
 embeddings <- data |>
-  granite_embed(text)
+  granite_embed(text_col = text)
 
 cat("Generated embeddings with dimensions:", dim(embeddings), "\n\n")
 
@@ -41,8 +41,8 @@ cat("Training classifier...\n")
 classifier <- granite_classifier(num_labels = 2) |>
   granite_train(
     train_data,
-    text,
-    sentiment,
+    text_col = text,
+    label_col = sentiment,
     epochs = 3,
     batch_size = 2,
     learning_rate = 2e-5
@@ -56,8 +56,8 @@ test_data <- tibble(
 )
 
 cat("\nMaking predictions...\n")
-predictions <- granite_predict(classifier, test_data, text, type = "class")
+predictions <- granite_predict(classifier, test_data, text_col = text, type = "class")
 print(predictions)
 
-probs <- granite_predict(classifier, test_data, text, type = "prob")
+probs <- granite_predict(classifier, test_data, text_col = text, type = "prob")
 print(probs)

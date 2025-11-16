@@ -103,14 +103,13 @@ granite_tokenizer <- function(
 #' @param ... Additional arguments passed to print
 #' @export
 print.granite_model <- function(x, ...) {
-  cat("Granite Model\n")
-  cat("-------------\n")
-  cat("Model:", x$model_name, "\n")
-  cat("Task:", x$task, "\n")
+  cli::cli_h1("Granite Model")
+  cli::cli_text("{.strong Model:} {x$model_name}")
+  cli::cli_text("{.strong Task:} {x$task}")
   if (!is.null(x$num_labels)) {
-    cat("Labels:", x$num_labels, "\n")
+    cli::cli_text("{.strong Labels:} {x$num_labels}")
   }
-  cat("Device:", x$device, "\n")
+  cli::cli_text("{.strong Device:} {x$device}")
   invisible(x)
 }
 
@@ -119,8 +118,7 @@ print.granite_model <- function(x, ...) {
 #' @param ... Additional arguments passed to print
 #' @export
 print.granite_tokenizer <- function(x, ...) {
-  cat("Granite Tokenizer\n")
-  cat("-----------------\n")
-  cat("Model:", x$model_name, "\n")
+  cli::cli_h1("Granite Tokenizer")
+  cli::cli_text("{.strong Model:} {x$model_name}")
   invisible(x)
 }

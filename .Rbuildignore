@@ -16,3 +16,6 @@
 ^setup_python\.sh$
 ^doc$
 ^Meta$
+^_pkgdown\.yml$
+^\.claude$
+^inst/\.venv$

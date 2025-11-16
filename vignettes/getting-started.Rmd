@@ -68,7 +68,7 @@ library(graniteR)
 library(tibble)
 
 # This should work without errors
-tibble(text = "Test") |> granite_embed(text)
+tibble(text = "Test") |> granite_embed(text_col = text)
 ```
 
 ## Generating Embeddings
@@ -90,7 +90,7 @@ data <- tibble(
 )
 
 embeddings <- data |>
-  granite_embed(text)
+  granite_embed(text_col = text)
 
 dim(embeddings)
 ```
@@ -117,8 +117,8 @@ train_data <- tibble(
 classifier <- granite_classifier(num_labels = 2) |>
   granite_train(
     train_data,
-    text,
-    sentiment,
+    text_col = text,
+    label_col = sentiment,
     epochs = 5,
     batch_size = 2,
     learning_rate = 2e-5,
@@ -137,11 +137,11 @@ new_data <- tibble(
 )
 
 # Get class predictions
-predictions <- granite_predict(classifier, new_data, text, type = "class")
+predictions <- granite_predict(classifier, new_data, text_col = text, type = "class")
 print(predictions)
 
 # Get probability scores
-probabilities <- granite_predict(classifier, new_data, text, type = "prob")
+probabilities <- granite_predict(classifier, new_data, text_col = text, type = "prob")
 print(probabilities)
 ```
 
@@ -167,7 +167,7 @@ custom_model <- granite_model(
 )
 
 embeddings <- data |>
-  granite_embed(text, model = custom_model)
+  granite_embed(text_col = text, model = custom_model)
 ```
 
 ### Working with Factors
@@ -181,7 +181,7 @@ train_data <- tibble(
 )
 
 classifier <- granite_classifier(num_labels = 3) |>
-  granite_train(train_data, text, category, epochs = 3)
+  granite_train(train_data, text_col = text, label_col = category, epochs = 3)
 ```
 
 ## Model Information

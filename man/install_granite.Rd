@@ -21,9 +21,11 @@ Alternatively, run the setup script from the package directory:
 \code{./setup_python.sh}
 }
 \examples{
+\dontshow{if (requireNamespace("processx")) withAutoprint(\{ # examplesIf}
 \dontrun{
 install_granite()
 # Then set the Python path
 Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
 }
+\dontshow{\}) # examplesIf}
 }
