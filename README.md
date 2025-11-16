@@ -6,187 +6,77 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
-R interface to IBM Granite embedding models via Python's transformers library.
+R interface to [IBM's Granite Embedding R2 model](https://arxiv.org/html/2508.21085v1) (149M parameters) for text embeddings and multi-class classification. Based on ModernBERT with Flash Attention, achieving 19-44% inference speed improvements over comparable models.
 
-## Inspiration
-
-This package is inspired by the [Granite Embedding R2 Models](https://arxiv.org/html/2508.21085v1) paper from IBM Research AI. The paper introduces a family of high-performance encoder-based embedding models designed for enterprise-scale dense retrieval, featuring:
-
-- Extended 8,192-token context length (16x expansion)
-- State-of-the-art performance across diverse retrieval domains
-- 19-44% speed advantages over leading competitors
-- Models ranging from 47M to 149M parameters
-- Apache 2.0 licensing for enterprise use
-
-The Granite models use ModernBERT architecture with Flash Attention optimizations and are trained using a multi-stage pipeline including retrieval-oriented pretraining, contrastive finetuning, and knowledge distillation.
+**Privacy**: All models execute locally. No data transmission to external servers.
 
 ## Installation
 
-### Step 1: Install the R Package
-
 ```r
-# Install from GitHub
+# Install package
 devtools::install_github("skandermulder/graniteR")
-```
 
-### Step 2: Install Python Dependencies
-
-graniteR requires Python dependencies (transformers, torch, datasets, numpy) to function. Choose one of the two methods below:
-
-#### Recommended: Setup with UV
-
-UV is a modern Python package manager that is 10-100x faster than pip.
-
-**1. Run the automated setup script:**
-
-```bash
-cd path/to/graniteR
-./setup_python.sh
-```
-
-The script will:
-- Install UV automatically if not present
-- Create a virtual environment at `.venv`
-- Install all Python dependencies rapidly
-
-**2. Configure R to use the virtual environment:**
-
-Add this to your `.Rprofile` or at the start of your R script:
-
-```r
-Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
-```
-
-**3. Load the package:**
-
-```r
+# Install Python dependencies (UV - completes in 1-2 minutes)
 library(graniteR)
+install_granite_uv()
 ```
 
-#### Alternative: Install from R
+## Quick Start
 
-```r
-library(graniteR)
-install_granite()  # Uses UV
-```
-
-### Verifying Installation
-
-```r
-library(graniteR)
-
-# Test with a simple embedding
-tibble(text = "Hello world") |>
-  granite_embed(text)
-```
-
-### Why UV?
-
-Traditional pip installation of PyTorch and transformers can take **10-20 minutes** due to large package sizes and dependency resolution. UV is 10-100x faster through:
-
-- **Parallel downloads**: Downloads packages concurrently
-- **Fast dependency resolution**: Rust-based resolver
-- **Efficient caching**: Reuses downloaded packages
-- **Result**: Installation completes in **1-2 minutes** instead of 10-20
-
-## Usage
-
-### Generate Embeddings
-
+**Embeddings:**
 ```r
 library(graniteR)
 library(dplyr)
 
-data <- tibble(
-  id = 1:3,
-  text = c(
-    "This is a positive sentence",
-    "This is a negative sentence",
-    "This is a neutral sentence"
-  )
-)
-
-embeddings <- data |>
-  granite_embed(text)
-
-head(embeddings)
+tibble(text = c("positive", "negative")) |>
+  granite_embed(text)  # 768-dimensional dense vectors
 ```
 
-### Text Classification
-
+**Binary Classification:**
 ```r
-train_data <- tibble(
-  text = c(
-    "I love this product",
-    "This is terrible",
-    "Great experience",
-    "Very disappointing"
-  ),
+train <- tibble(
+  text = c("I love this", "terrible", "great", "poor"),
   label = c(1, 0, 1, 0)
 )
 
 classifier <- granite_classifier(num_labels = 2) |>
-  granite_train(
-    train_data,
-    text,
-    label,
-    epochs = 3,
-    batch_size = 2
-  )
+  granite_train(train, text_col = text, label_col = label, epochs = 3)
 
-new_data <- tibble(
-  text = c("Amazing product", "Not good")
+granite_predict(classifier, tibble(text = c("excellent", "bad")), text_col = text)
+```
+
+**Multi-Class Classification:**
+```r
+train <- tibble(
+  text = c("urgent issue", "routine request", "critical failure", "minor bug"),
+  priority = c("high", "low", "critical", "medium")
 )
 
-predictions <- granite_predict(classifier, new_data, text)
+classifier <- granite_classifier(num_labels = 4) |>
+  granite_train(train, text_col = text, label_col = priority, epochs = 5)
+
+# Returns class predictions or probability distributions
+granite_predict(classifier, new_data, text_col = text, type = "class")
+granite_predict(classifier, new_data, text_col = text, type = "prob")
 ```
 
 ## Features
 
-- Pipe-friendly interface following tidyverse conventions
-- Support for sentence embeddings with Granite-R2
-- Text classification with fine-tuning
-- GPU acceleration support
-- Minimal dependencies
+- **Local execution**: All inference runs on-device, ensuring data privacy
+- **Multi-class support**: Binary and n-class classification with softmax output
+- **Fast dependency installation**: UV package manager (1-2 min vs 10-20 min with pip)
+- **GPU acceleration**: Automatic CUDA detection with CPU fallback
+- **Training monitoring**: Real-time loss and validation accuracy tracking
+- **Flexible prediction**: Class labels or probability distributions
 
-## Model
+## Documentation
 
-The package uses IBM's Granite Embedding English R2 model by default:
-- Model: `ibm-granite/granite-embedding-english-r2`
-- Size: 149M parameters
-- Embedding dimension: 768
-- Max sequence length: 512 tokens
-
-## Troubleshooting
-
-### Python environment not recognized
-
-Verify your Python path is set correctly:
-
-```r
-Sys.getenv("RETICULATE_PYTHON")
-```
-
-Should show the path to your virtual environment's Python. If not set:
-
-```r
-Sys.setenv(RETICULATE_PYTHON = "/absolute/path/to/graniteR/.venv/bin/python")
-```
-
-### UV installation issues
-
-If the setup script can't find UV after installation, add UV to your PATH:
-
-```bash
-export PATH="$HOME/.cargo/bin:$PATH"
-```
-
-Add this line to your `~/.bashrc` or `~/.zshrc` for permanent effect.
-
-### More Help
-
-See [SETUP.md](SETUP.md) for detailed troubleshooting and configuration options.
+- `vignette("getting-started")` - Installation and basic usage
+- `vignette("malicious-prompt-detection")` - Binary classification example
+- `vignette("technical-approaches")` - Embeddings vs fine-tuning comparison
+- `examples/multiclass_classification.R` - Multi-class classification workflow
+- `granite_check_system()` - System diagnostics and setup verification
 
 ## License
 
-MIT
+MIT © 2024
