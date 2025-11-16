@@ -26,6 +26,22 @@ The dataset includes 467,000 labeled examples from various sources, making it su
 - Fine-tuning transformer models for specialized tasks
 - Evaluating model performance on held-out data
 
+## Prerequisites
+
+Before proceeding, ensure you have installed graniteR and its Python dependencies. **We strongly recommend using UV for fast dependency installation** (1-2 minutes instead of 10-20 minutes with pip):
+
+```bash
+# From the graniteR package directory
+./setup_python.sh
+
+# Then in R, configure the Python environment
+Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+```
+
+See the "Getting Started" vignette for detailed installation instructions.
+
+For this classification task, GPU acceleration is recommended but not required. If you have a CUDA-capable GPU, the training will be significantly faster.
+
 ## Understanding the Approach
 
 The graniteR package provides two complementary approaches for text classification:
@@ -282,6 +298,7 @@ Key takeaways:
 
 ## References
 
-- Dataset: https://huggingface.co/datasets/ahsanayub/malicious-prompts
+- Granite Embedding R2 Models (2025): https://arxiv.org/html/2508.21085v1 - Research paper on the model architecture and training
+- Malicious Prompts Dataset: https://huggingface.co/datasets/ahsanayub/malicious-prompts
 - IBM Granite Models: https://huggingface.co/ibm-granite
 - Transformers Library: https://huggingface.co/docs/transformers

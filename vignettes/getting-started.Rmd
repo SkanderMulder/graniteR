@@ -21,13 +21,63 @@ The **graniteR** package provides a pipe-friendly interface to IBM's Granite emb
 
 ## Installation
 
+### R Package Installation
+
 ```{r}
 # Install from GitHub
 devtools::install_github("skandermulder/graniteR")
+```
 
-# Install Python dependencies
+### Python Dependencies Setup
+
+graniteR requires Python dependencies to function. The traditional `pip` installation can be slow (10-20 minutes for PyTorch and transformers). We recommend using **UV**, which is 10-100x faster.
+
+#### Recommended: Fast Setup with UV
+
+From your terminal, run the automated setup script:
+
+```bash
+cd path/to/graniteR
+./setup_python.sh
+```
+
+This script will:
+- Automatically install UV if not present
+- Create a Python virtual environment at `.venv`
+- Install all dependencies (transformers, torch, datasets, numpy) in 1-2 minutes
+
+Then configure R to use this virtual environment by adding to your `.Rprofile` or script:
+
+```{r}
+Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+```
+
+#### Alternative: Traditional Installation
+
+If you prefer the standard approach (slower):
+
+```{r}
 library(graniteR)
-install_granite()
+install_granite()  # Uses pip - may take 10-20 minutes
+```
+
+Or use UV from within R:
+
+```{r}
+library(graniteR)
+install_granite_uv()  # Uses UV - much faster
+```
+
+### Verifying Setup
+
+Test your installation:
+
+```{r}
+library(graniteR)
+library(tibble)
+
+# This should work without errors
+tibble(text = "Test") |> granite_embed(text)
 ```
 
 ## Generating Embeddings
@@ -150,8 +200,10 @@ The default model is IBM's Granite Embedding English R2:
 - **Model**: `ibm-granite/granite-embedding-english-r2`
 - **Parameters**: 149M
 - **Embedding Dimension**: 768
-- **Max Sequence Length**: 512 tokens
+- **Max Sequence Length**: 512 tokens (model supports up to 8,192 in research)
 - **Use Case**: Sentence embeddings, retrieval, classification
+
+This model is based on the [Granite Embedding R2 Models](https://arxiv.org/html/2508.21085v1) research, featuring ModernBERT architecture with Flash Attention optimizations and achieving 19-44% speed advantages over leading competitors while maintaining superior accuracy.
 
 ## Tips
 

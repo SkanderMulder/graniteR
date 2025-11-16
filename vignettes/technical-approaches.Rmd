@@ -19,6 +19,24 @@ knitr::opts_chunk$set(
 
 The graniteR package provides two distinct approaches for text classification using IBM's Granite-R2 embedding model (149M parameters). This vignette explains the technical differences, trade-offs, and appropriate use cases for each approach.
 
+## Setup Requirements
+
+This vignette assumes you have graniteR installed with Python dependencies. **We recommend UV for fast setup:**
+
+```bash
+# Run from the graniteR package directory
+./setup_python.sh
+```
+
+Then configure R:
+
+```r
+Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+library(graniteR)
+```
+
+Traditional pip installation can take 10-20 minutes for PyTorch and transformers, while UV completes the same installation in 1-2 minutes. See the "Getting Started" vignette for complete installation instructions.
+
 ## Approach 1: Fixed Embeddings with Separate Classifier
 
 ### Methodology
@@ -316,6 +334,7 @@ The choice between fixed embeddings and fine-tuning depends on task requirements
 
 ## References
 
-- Granite Embedding Models: https://huggingface.co/ibm-granite
+- Granite Embedding R2 Models (2025): https://arxiv.org/html/2508.21085v1 - The research paper introducing the model architecture, training methodology, and benchmarks
+- Granite Models on Hugging Face: https://huggingface.co/ibm-granite
 - Fine-Tuning Best Practices: https://huggingface.co/docs/transformers/training
 - Transfer Learning in NLP: Howard and Ruder (2018), Universal Language Model Fine-tuning for Text Classification
