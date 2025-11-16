@@ -38,23 +38,16 @@ Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
 library(graniteR)
 library(tibble)
 
-tibble(text = "Hello world") |> granite_embed(text)
+tibble(text = "Hello world") |> embed(text)
 ```
 
-## Alternative Installation Methods
+## Alternative Installation Method
 
-### Method 1: UV from R
+### Install from R
 
 ```r
 library(graniteR)
-install_granite_uv()
-```
-
-### Method 2: Traditional pip (slower)
-
-```r
-library(graniteR)
-install_granite()
+install_granite()  # Uses UV for fast installation
 ```
 
 ## Why UV?

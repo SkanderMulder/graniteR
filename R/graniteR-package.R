@@ -11,7 +11,7 @@
 #'
 #' @section Installation:
 #' The package requires Python dependencies. Use \code{install_granite()}
-#' or \code{install_granite_uv()} for faster setup.
+#' for fast setup with UV package manager.
 #'
 #' @section Getting Started:
 #' See the "Getting Started" vignette: \code{vignette("getting-started", package = "graniteR")}

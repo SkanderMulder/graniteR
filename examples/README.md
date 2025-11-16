@@ -40,7 +40,7 @@ Comprehensive guide to multi-class classification with graniteR.
 
 All examples assume you have:
 1. Installed graniteR: `devtools::install_github("skandermulder/graniteR")`
-2. Set up Python dependencies: `install_granite_uv()` or `install_granite()`
+2. Set up Python dependencies: `install_granite()`
 
 To run an example:
 
@@ -63,12 +63,12 @@ graniteR supports:
 
 ✅ **Binary Classification** (2 classes)
 ```r
-classifier <- granite_classifier(num_labels = 2)
+clf <- classifier(num_labels = 2)
 ```
 
 ✅ **Multi-class Classification** (3+ classes)
 ```r
-classifier <- granite_classifier(num_labels = 4)  # e.g., critical, high, medium, low
+clf <- classifier(num_labels = 4)  # e.g., critical, high, medium, low
 ```
 
 ✅ **Character Labels** - automatically converted
@@ -102,7 +102,7 @@ labels <- c(0, 1, 2, 3)
 ## Need More Help?
 
 - See vignettes: `vignette("getting-started", package = "graniteR")`
-- Check documentation: `?granite_classifier`
+- Check documentation: `?classifier`
 - Multi-class is mentioned in: `vignette("technical-approaches")`
 
 ---

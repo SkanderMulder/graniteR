@@ -11,13 +11,13 @@ torch <- NULL
     }, error = function(e) {
       packageStartupMessage(
         "Python dependencies not found. ",
-        "Run install_granite() or install_granite_uv() to set up."
+        "Run install_granite() to set up."
       )
     })
   } else {
     packageStartupMessage(
       "Python not configured. ",
-      "Run install_granite() or install_granite_uv() to set up."
+      "Run install_granite() to set up."
     )
   }
 }
@@ -111,24 +111,4 @@ install_granite <- function(venv_path = ".venv") {
   cli::cli_code('Sys.setenv(RETICULATE_PYTHON = "{python_path}")')
 
   invisible(TRUE)
-}
-
-#' Install Python dependencies for graniteR using UV (alias)
-#'
-#' @param venv_path Path to virtual environment (default: .venv)
-#'
-#' @details
-#' This is an alias for \code{install_granite()}. Both functions use UV
-#' for fast dependency installation.
-#'
-#' @export
-#' @seealso \code{\link{install_granite}}
-#' @examplesIf requireNamespace("processx")
-#' \dontrun{
-#' install_granite_uv()
-#' # Then set the Python path
-#' Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
-#' }
-install_granite_uv <- function(venv_path = ".venv") {
-  install_granite(venv_path = venv_path)
 }

@@ -18,9 +18,9 @@ R interface for text embeddings and classification using transformer encoder mod
 # Install package
 devtools::install_github("skandermulder/graniteR")
 
-# Install Python dependencies (UV - completes in 1-2 minutes)
+# Install Python dependencies (uses UV - completes in 1-2 minutes)
 library(graniteR)
-install_granite_uv()
+install_granite()
 ```
 
 ## Quick Start

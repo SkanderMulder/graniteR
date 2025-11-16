@@ -18,7 +18,7 @@ via Python's transformers library. Key features include:
 \section{Installation}{
 
 The package requires Python dependencies. Use \code{install_granite()}
-or \code{install_granite_uv()} for faster setup.
+for fast setup with UV package manager.
 }
 
 \section{Getting Started}{

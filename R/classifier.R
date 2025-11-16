@@ -237,7 +237,7 @@ evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, dev
 #' @examplesIf requireNamespace("transformers")
 #' # Assuming 'clf' is a trained model and 'new_data' is a tibble
 #' # predictions <- predict(clf, new_data, text_col = text)
-predict.granite_classifier <- function(
+predict.classifier <- function(
   classifier,
   data,
   text_col,
