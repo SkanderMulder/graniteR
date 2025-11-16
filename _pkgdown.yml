@@ -1,0 +1,34 @@
+url: https://skandermulder.github.io/graniteR
+template:
+  bootstrap: 5
+
+reference:
+- title: Core Functions
+  desc: Main functions for working with Granite models
+  contents:
+  - granite_model
+  - granite_tokenizer
+  - install_granite
+
+- title: Embeddings
+  desc: Generate sentence embeddings
+  contents:
+  - granite_embed
+
+- title: Classification
+  desc: Train and use text classifiers
+  contents:
+  - granite_classifier
+  - granite_train
+  - granite_predict
+
+navbar:
+  structure:
+    left: [intro, reference, articles]
+    right: [github]
+  components:
+    articles:
+      text: Articles
+      menu:
+      - text: Getting Started
+        href: articles/getting-started.html

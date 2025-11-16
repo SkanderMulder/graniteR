@@ -1,0 +1,13 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^README\.md$
+^\.git$
+^\.github$
+^data-raw$
+^idea\.md$
+^interface\.md$
+^final\.md$
+^DEVELOPMENT\.md$
+^CONTRIBUTING\.md$
+^examples$
+^\.Rprofile$

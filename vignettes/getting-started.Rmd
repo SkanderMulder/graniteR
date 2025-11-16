@@ -1,0 +1,168 @@
+---
+title: "Getting Started with graniteR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with graniteR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## Introduction
+
+The **graniteR** package provides a pipe-friendly interface to IBM's Granite embedding models. It follows tidyverse conventions and makes it easy to generate embeddings and train text classifiers.
+
+## Installation
+
+```{r}
+# Install from GitHub
+devtools::install_github("skandermulder/graniteR")
+
+# Install Python dependencies
+library(graniteR)
+install_granite()
+```
+
+## Generating Embeddings
+
+The simplest use case is generating sentence embeddings:
+
+```{r}
+library(graniteR)
+library(dplyr)
+library(tibble)
+
+data <- tibble(
+  id = 1:3,
+  text = c(
+    "The quick brown fox jumps over the lazy dog",
+    "Machine learning is a subset of artificial intelligence",
+    "R is a language for statistical computing"
+  )
+)
+
+embeddings <- data |>
+  granite_embed(text)
+
+dim(embeddings)
+```
+
+The `granite_embed()` function adds embedding columns (emb_1, emb_2, ..., emb_768) to your data.
+
+## Text Classification
+
+### Basic Classification
+
+```{r}
+train_data <- tibble(
+  text = c(
+    "I love this product, it's amazing!",
+    "This is terrible, worst purchase ever",
+    "Great quality and fast shipping",
+    "Very disappointed with this item",
+    "Excellent service, highly recommend",
+    "Poor quality, don't waste your money"
+  ),
+  sentiment = c(1, 0, 1, 0, 1, 0)
+)
+
+classifier <- granite_classifier(num_labels = 2) |>
+  granite_train(
+    train_data,
+    text,
+    sentiment,
+    epochs = 5,
+    batch_size = 2,
+    learning_rate = 2e-5,
+    validation_split = 0.3
+  )
+```
+
+### Making Predictions
+
+```{r}
+new_data <- tibble(
+  text = c(
+    "This product exceeded my expectations",
+    "Not worth the price"
+  )
+)
+
+# Get class predictions
+predictions <- granite_predict(classifier, new_data, text, type = "class")
+print(predictions)
+
+# Get probability scores
+probabilities <- granite_predict(classifier, new_data, text, type = "prob")
+print(probabilities)
+```
+
+## Advanced Usage
+
+### Using GPU
+
+If you have a CUDA-capable GPU:
+
+```{r}
+model <- granite_model(task = "embedding", device = "cuda")
+classifier <- granite_classifier(num_labels = 3, device = "cuda")
+```
+
+### Custom Models
+
+You can use any compatible model from Hugging Face:
+
+```{r}
+custom_model <- granite_model(
+  model_name = "sentence-transformers/all-MiniLM-L6-v2",
+  task = "embedding"
+)
+
+embeddings <- data |>
+  granite_embed(text, model = custom_model)
+```
+
+### Working with Factors
+
+The package automatically handles factor labels:
+
+```{r}
+train_data <- tibble(
+  text = c("positive text", "negative text", "neutral text"),
+  category = factor(c("pos", "neg", "neu"))
+)
+
+classifier <- granite_classifier(num_labels = 3) |>
+  granite_train(train_data, text, category, epochs = 3)
+```
+
+## Model Information
+
+The default model is IBM's Granite Embedding English R2:
+
+- **Model**: `ibm-granite/granite-embedding-english-r2`
+- **Parameters**: 149M
+- **Embedding Dimension**: 768
+- **Max Sequence Length**: 512 tokens
+- **Use Case**: Sentence embeddings, retrieval, classification
+
+## Tips
+
+1. **Batch Size**: Adjust based on your GPU memory. Smaller batches use less memory.
+2. **Learning Rate**: Start with 2e-5 or 5e-5 for fine-tuning.
+3. **Epochs**: 3-5 epochs is typically sufficient for small datasets.
+4. **Validation**: Always use a validation split to monitor overfitting.
+
+## Next Steps
+
+- Try different Granite or transformer models
+- Experiment with multi-class classification
+- Use embeddings for clustering or similarity search
+- Fine-tune on domain-specific data
