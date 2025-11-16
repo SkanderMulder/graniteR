@@ -1,13 +1,20 @@
 #' Create a Granite classifier
 #'
-#' @param num_labels Number of output classes
+#' Creates a text classifier using IBM's Granite embedding model. Supports both
+#' binary classification (2 classes) and multi-class classification (3+ classes).
+#'
+#' @param num_labels Number of output classes (e.g., 2 for binary, 4 for multi-class)
 #' @param model_name Model identifier from Hugging Face Hub
 #' @param device Device to use ("cpu" or "cuda")
 #' @return A Granite classifier object with model and tokenizer
 #' @export
 #' @examples
 #' \dontrun{
+#' # Binary classification
 #' classifier <- granite_classifier(num_labels = 2)
+#'
+#' # Multi-class classification (e.g., priority levels)
+#' classifier <- granite_classifier(num_labels = 4)
 #' }
 granite_classifier <- function(
   num_labels,
@@ -36,10 +43,15 @@ granite_classifier <- function(
 
 #' Train a Granite classifier
 #'
+#' Trains a text classifier on labeled data. Supports integer, character, and
+#' factor labels. Character and factor labels are automatically converted to
+#' integers (alphabetically for characters, by factor levels for factors).
+#'
 #' @param classifier Granite classifier object
 #' @param data Training data frame
 #' @param text_col Column name containing text (unquoted or string)
-#' @param label_col Column name containing labels (unquoted or string)
+#' @param label_col Column name containing labels (unquoted or string).
+#'   Can be integer, character, or factor.
 #' @param epochs Number of training epochs
 #' @param batch_size Batch size for training
 #' @param learning_rate Learning rate for optimizer
@@ -49,12 +61,22 @@ granite_classifier <- function(
 #' @examples
 #' \dontrun{
 #' library(dplyr)
+#'
+#' # Binary classification with integer labels
 #' data <- tibble(
 #'   text = c("positive example", "negative example"),
 #'   label = c(0, 1)
 #' )
 #' classifier <- granite_classifier(num_labels = 2) |>
 #'   granite_train(data, text, label, epochs = 3)
+#'
+#' # Multi-class with character labels (auto-converted alphabetically)
+#' data_multi <- tibble(
+#'   text = c("urgent issue", "minor bug", "question", "critical"),
+#'   priority = c("high", "low", "medium", "critical")
+#' )
+#' classifier_multi <- granite_classifier(num_labels = 4) |>
+#'   granite_train(data_multi, text, priority, epochs = 5)
 #' }
 granite_train <- function(
   classifier,

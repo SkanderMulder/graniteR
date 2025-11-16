@@ -11,7 +11,7 @@ granite_classifier(
 )
 }
 \arguments{
-\item{num_labels}{Number of output classes}
+\item{num_labels}{Number of output classes (e.g., 2 for binary, 4 for multi-class)}
 
 \item{model_name}{Model identifier from Hugging Face Hub}
 
@@ -21,10 +21,15 @@ granite_classifier(
 A Granite classifier object with model and tokenizer
 }
 \description{
-Create a Granite classifier
+Creates a text classifier using IBM's Granite embedding model. Supports both
+binary classification (2 classes) and multi-class classification (3+ classes).
 }
 \examples{
 \dontrun{
+# Binary classification
 classifier <- granite_classifier(num_labels = 2)
+
+# Multi-class classification (e.g., priority levels)
+classifier <- granite_classifier(num_labels = 4)
 }
 }

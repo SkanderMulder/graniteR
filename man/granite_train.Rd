@@ -22,7 +22,8 @@ granite_train(
 
 \item{text_col}{Column name containing text (unquoted or string)}
 
-\item{label_col}{Column name containing labels (unquoted or string)}
+\item{label_col}{Column name containing labels (unquoted or string).
+Can be integer, character, or factor.}
 
 \item{epochs}{Number of training epochs}
 
@@ -36,16 +37,28 @@ granite_train(
 Updated classifier object with trained model
 }
 \description{
-Train a Granite classifier
+Trains a text classifier on labeled data. Supports integer, character, and
+factor labels. Character and factor labels are automatically converted to
+integers (alphabetically for characters, by factor levels for factors).
 }
 \examples{
 \dontrun{
 library(dplyr)
+
+# Binary classification with integer labels
 data <- tibble(
   text = c("positive example", "negative example"),
   label = c(0, 1)
 )
 classifier <- granite_classifier(num_labels = 2) |>
   granite_train(data, text, label, epochs = 3)
+
+# Multi-class with character labels (auto-converted alphabetically)
+data_multi <- tibble(
+  text = c("urgent issue", "minor bug", "question", "critical"),
+  priority = c("high", "low", "medium", "critical")
+)
+classifier_multi <- granite_classifier(num_labels = 4) |>
+  granite_train(data_multi, text, priority, epochs = 5)
 }
 }
