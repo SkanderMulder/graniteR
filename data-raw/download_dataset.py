@@ -1,5 +1,8 @@
 """
 Download malicious prompts dataset from HuggingFace
+
+After running this script, run DATASET.R to create the R data file:
+    Rscript data-raw/DATASET.R
 """
 import pandas as pd
 from datasets import load_dataset
@@ -19,10 +22,13 @@ sample_df = pd.concat([malicious, benign]).sample(frac=1, random_state=42)
 # Select relevant columns
 sample_df = sample_df[['text', 'label', 'source']].reset_index(drop=True)
 
-# Save to CSV
-output_path = 'malicious_prompts_sample.csv'
+# Save to CSV in inst/data/
+import os
+os.makedirs('../inst/data', exist_ok=True)
+output_path = '../inst/data/malicious_prompts_sample.csv'
 sample_df.to_csv(output_path, index=False)
 print(f"Saved {len(sample_df)} samples to {output_path}")
+print("\nNext step: Run 'Rscript data-raw/DATASET.R' to create the R data file")
 
 # Print statistics
 print(f"\nDataset statistics:")

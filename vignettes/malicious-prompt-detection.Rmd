@@ -81,11 +81,10 @@ For this malicious prompt detection task, we demonstrate the end-to-end fine-tun
 ```{r}
 library(graniteR)
 library(dplyr)
-library(readr)
 
 # Load dataset from package
-data_path <- system.file("data/malicious_prompts_sample.csv", package = "graniteR")
-prompts <- read_csv(data_path)
+data(malicious_prompts_sample, package = "graniteR")
+prompts <- malicious_prompts_sample
 
 # Examine structure
 glimpse(prompts)
