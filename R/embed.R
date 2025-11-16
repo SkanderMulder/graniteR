@@ -7,15 +7,14 @@
 #' @param batch_size Batch size for processing
 #' @return Data frame with added embeddings column
 #' @export
-#' @examples
-#' \dontrun{
+#' @seealso \code{\link{granite_model}}, \code{\link{granite_tokenizer}}
+#' @examplesIf requireNamespace("transformers")
 #' library(dplyr)
-#' data <- tibble(text = c("Hello world", "Test sentence"))
-#' data |> granite_embed()
-#' }
+#' data <- tibble::tibble(text = c("Hello world", "Test sentence"))
+#' data |> granite_embed(text_col = text)
 granite_embed <- function(
   data,
-  text_col = text,
+  text_col,
   model = NULL,
   tokenizer = NULL,
   batch_size = 32
@@ -27,7 +26,7 @@ granite_embed <- function(
     stop(sprintf("Column '%s' not found in data", text_col_name))
   }
 
-  texts <- dplyr::pull(data, !!text_col)
+  texts <- dplyr::pull(data, .data[[text_col_name]])
 
   if (is.null(model)) {
     model <- granite_model(task = "embedding")
@@ -40,41 +39,31 @@ granite_embed <- function(
   check_tokenizer(tokenizer)
 
   model$model$eval()
-
   embeddings_list <- list()
-  n_batches <- ceiling(length(texts) / batch_size)
 
-  for (i in seq_len(n_batches)) {
+  for (i in seq_len(ceiling(length(texts) / batch_size))) {
     start_idx <- (i - 1) * batch_size + 1
     end_idx <- min(i * batch_size, length(texts))
-    batch_texts <- texts[start_idx:end_idx]
 
     encodings <- tokenizer$tokenizer(
-      batch_texts,
+      texts[start_idx:end_idx],
       padding = TRUE,
       truncation = TRUE,
       return_tensors = "pt"
     )
 
-    if (model$device == "cuda") {
-      encodings$input_ids <- encodings$input_ids$to(torch$device("cuda"))
-      encodings$attention_mask <- encodings$attention_mask$to(torch$device("cuda"))
-    }
+    moved <- to_device(encodings, device = model$device)
 
     with(torch$no_grad(), {
       outputs <- model$model(
-        input_ids = encodings$input_ids,
-        attention_mask = encodings$attention_mask
+        input_ids = moved$encodings$input_ids,
+        attention_mask = moved$encodings$attention_mask
       )
-
-      batch_embeddings <- outputs$last_hidden_state[, 1L, ]$cpu()$numpy()
-      embeddings_list[[i]] <- batch_embeddings
+      embeddings_list[[i]] <- outputs$last_hidden_state[, 1L, ]$cpu()$numpy()
     })
   }
 
-  all_embeddings <- do.call(rbind, embeddings_list)
-
-  embeddings_df <- as.data.frame(all_embeddings)
+  embeddings_df <- as.data.frame(do.call(rbind, embeddings_list))
   names(embeddings_df) <- paste0("emb_", seq_len(ncol(embeddings_df)))
 
   dplyr::bind_cols(data, embeddings_df)

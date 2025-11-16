@@ -2,25 +2,44 @@
 #'
 #' Creates a text classifier using IBM's Granite embedding model. Supports both
 #' binary classification (2 classes) and multi-class classification (3+ classes).
+#' The number of classes can be specified explicitly or inferred from training data.
 #'
-#' @param num_labels Number of output classes (e.g., 2 for binary, 4 for multi-class)
+#' @param num_labels Number of output classes (e.g., 2 for binary, 4 for multi-class).
+#'   If NULL and data is provided, will be inferred from unique labels.
+#' @param data Optional training data frame to infer num_labels from
+#' @param label_col Optional label column name (unquoted) to infer num_labels from
 #' @param model_name Model identifier from Hugging Face Hub
 #' @param device Device to use ("cpu" or "cuda")
 #' @return A Granite classifier object with model and tokenizer
 #' @export
-#' @examples
-#' \dontrun{
-#' # Binary classification
+#' @seealso \code{\link{granite_train}}, \code{\link{granite_predict}}
+#' @examplesIf requireNamespace("transformers")
+#' # Explicit num_labels
 #' classifier <- granite_classifier(num_labels = 2)
 #'
-#' # Multi-class classification (e.g., priority levels)
-#' classifier <- granite_classifier(num_labels = 4)
-#' }
+#' # Infer from data
+#' data <- tibble::tibble(text = c("a", "b"), label = c("high", "low"))
+#' classifier <- granite_classifier(data = data, label_col = label)
 granite_classifier <- function(
-  num_labels,
+  num_labels = NULL,
+  data = NULL,
+  label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
   device = "cpu"
 ) {
+  # Infer num_labels from data if not provided
+  if (is.null(num_labels) && !is.null(data) && !is.null(rlang::enquo(label_col))) {
+    label_col_quo <- rlang::enquo(label_col)
+    labels <- dplyr::pull(data, !!label_col_quo)
+    num_labels <- length(unique(labels))
+    message("Inferred num_labels = ", num_labels, " from data")
+  }
+  
+  if (is.null(num_labels)) {
+    stop("num_labels must be specified or inferred from data. ",
+         "Use: granite_classifier(num_labels = 2) or ",
+         "granite_classifier(data = data, label_col = label)")
+  }
   model <- granite_model(
     model_name = model_name,
     task = "classification",
@@ -56,14 +75,15 @@ granite_classifier <- function(
 #' @param batch_size Batch size for training
 #' @param learning_rate Learning rate for optimizer
 #' @param validation_split Fraction of data to use for validation
+#' @param verbose Whether to print training progress (default: TRUE)
 #' @return Updated classifier object with trained model
 #' @export
-#' @examples
-#' \dontrun{
+#' @seealso \code{\link{granite_classifier}}, \code{\link{granite_predict}}
+#' @examplesIf requireNamespace("transformers")
 #' library(dplyr)
 #'
 #' # Binary classification with integer labels
-#' data <- tibble(
+#' data <- tibble::tibble(
 #'   text = c("positive example", "negative example"),
 #'   label = c(0, 1)
 #' )
@@ -71,13 +91,12 @@ granite_classifier <- function(
 #'   granite_train(data, text, label, epochs = 3)
 #'
 #' # Multi-class with character labels (auto-converted alphabetically)
-#' data_multi <- tibble(
+#' data_multi <- tibble::tibble(
 #'   text = c("urgent issue", "minor bug", "question", "critical"),
 #'   priority = c("high", "low", "medium", "critical")
 #' )
 #' classifier_multi <- granite_classifier(num_labels = 4) |>
 #'   granite_train(data_multi, text, priority, epochs = 5)
-#' }
 granite_train <- function(
   classifier,
   data,
@@ -86,7 +105,8 @@ granite_train <- function(
   epochs = 3,
   batch_size = 8,
   learning_rate = 5e-5,
-  validation_split = 0.2
+  validation_split = 0.2,
+  verbose = TRUE
 ) {
   text_col <- rlang::enquo(text_col)
   label_col <- rlang::enquo(label_col)
@@ -118,6 +138,11 @@ granite_train <- function(
   )
 
   model$train()
+  
+  if (verbose) {
+    message(sprintf("Training on %d samples, validating on %d samples",
+                    length(train_texts), length(val_texts)))
+  }
 
   for (epoch in seq_len(epochs)) {
     total_loss <- 0
@@ -127,55 +152,40 @@ granite_train <- function(
       start_idx <- (i - 1) * batch_size + 1
       end_idx <- min(i * batch_size, length(train_texts))
 
-      batch_texts <- train_texts[start_idx:end_idx]
-      batch_labels <- train_labels[start_idx:end_idx]
-
       encodings <- tokenizer(
-        batch_texts,
+        train_texts[start_idx:end_idx],
         padding = TRUE,
         truncation = TRUE,
         return_tensors = "pt"
       )
 
-      labels_tensor <- torch$tensor(as.integer(batch_labels))
-
-      if (classifier$model$device == "cuda") {
-        encodings$input_ids <- encodings$input_ids$to(torch$device("cuda"))
-        encodings$attention_mask <- encodings$attention_mask$to(torch$device("cuda"))
-        labels_tensor <- labels_tensor$to(torch$device("cuda"))
-      }
+      labels_tensor <- torch$tensor(as.integer(train_labels[start_idx:end_idx]))
+      moved <- to_device(encodings, labels_tensor, classifier$model$device)
 
       optimizer$zero_grad()
-
       outputs <- model(
-        input_ids = encodings$input_ids,
-        attention_mask = encodings$attention_mask,
-        labels = labels_tensor
+        input_ids = moved$encodings$input_ids,
+        attention_mask = moved$encodings$attention_mask,
+        labels = moved$labels
       )
 
-      loss <- outputs$loss
-      loss$backward()
+      outputs$loss$backward()
       optimizer$step()
-
-      total_loss <- total_loss + loss$item()
+      total_loss <- total_loss + outputs$loss$item()
     }
 
-    avg_loss <- total_loss / n_batches
-
-    if (length(val_texts) > 0) {
-      val_accuracy <- evaluate_classifier(
-        model, tokenizer, val_texts, val_labels,
-        batch_size, classifier$model$device
-      )
-      message(sprintf(
-        "Epoch %d/%d - Loss: %.4f - Val Accuracy: %.4f",
-        epoch, epochs, avg_loss, val_accuracy
-      ))
-    } else {
-      message(sprintf(
-        "Epoch %d/%d - Loss: %.4f",
-        epoch, epochs, avg_loss
-      ))
+    if (verbose) {
+      val_msg <- if (length(val_texts) > 0) {
+        val_accuracy <- evaluate_classifier(
+          model, tokenizer, val_texts, val_labels,
+          batch_size, classifier$model$device
+        )
+        sprintf("Epoch %d/%d - Loss: %.4f - Val Accuracy: %.4f",
+                epoch, epochs, total_loss / n_batches, val_accuracy)
+      } else {
+        sprintf("Epoch %d/%d - Loss: %.4f", epoch, epochs, total_loss / n_batches)
+      }
+      message(val_msg)
     }
   }
 
@@ -183,47 +193,37 @@ granite_train <- function(
   classifier
 }
 
-# Internal evaluation function
+#' Internal evaluation function
+#' @keywords internal
 evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, device) {
   model$eval()
   correct <- 0
-  total <- 0
 
-  n_batches <- ceiling(length(texts) / batch_size)
-
-  for (i in seq_len(n_batches)) {
+  for (i in seq_len(ceiling(length(texts) / batch_size))) {
     start_idx <- (i - 1) * batch_size + 1
     end_idx <- min(i * batch_size, length(texts))
 
-    batch_texts <- texts[start_idx:end_idx]
-    batch_labels <- labels[start_idx:end_idx]
-
     encodings <- tokenizer(
-      batch_texts,
+      texts[start_idx:end_idx],
       padding = TRUE,
       truncation = TRUE,
       return_tensors = "pt"
     )
 
-    if (device == "cuda") {
-      encodings$input_ids <- encodings$input_ids$to(torch$device("cuda"))
-      encodings$attention_mask <- encodings$attention_mask$to(torch$device("cuda"))
-    }
+    moved <- to_device(encodings, device = device)
 
     with(torch$no_grad(), {
       outputs <- model(
-        input_ids = encodings$input_ids,
-        attention_mask = encodings$attention_mask
+        input_ids = moved$encodings$input_ids,
+        attention_mask = moved$encodings$attention_mask
       )
-
       predictions <- torch$argmax(outputs$logits, dim = -1L)$cpu()$numpy()
-      correct <- correct + sum(predictions == batch_labels)
-      total <- total + length(batch_labels)
+      correct <- correct + sum(predictions == labels[start_idx:end_idx])
     })
   }
 
   model$train()
-  correct / total
+  correct / length(labels)
 }
 
 #' Make predictions with a Granite classifier
@@ -235,14 +235,14 @@ evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, dev
 #' @param batch_size Batch size for prediction
 #' @return Data frame with predictions
 #' @export
-#' @examples
-#' \dontrun{
-#' predictions <- granite_predict(classifier, new_data, text)
-#' }
+#' @seealso \code{\link{granite_classifier}}, \code{\link{granite_train}}
+#' @examplesIf requireNamespace("transformers")
+#' # Assuming 'classifier' is a trained model and 'new_data' is a tibble
+#' # predictions <- granite_predict(classifier, new_data, text_col = text)
 granite_predict <- function(
   classifier,
   data,
-  text_col = text,
+  text_col,
   type = c("class", "prob"),
   batch_size = 32
 ) {
@@ -255,55 +255,45 @@ granite_predict <- function(
   text_col <- rlang::enquo(text_col)
   text_col_name <- rlang::as_name(text_col)
 
-  texts <- dplyr::pull(data, !!text_col)
+  texts <- dplyr::pull(data, .data[[text_col_name]])
 
   model <- classifier$model$model
   tokenizer <- classifier$tokenizer$tokenizer
 
   model$eval()
-
   predictions_list <- list()
-  n_batches <- ceiling(length(texts) / batch_size)
 
-  for (i in seq_len(n_batches)) {
+  for (i in seq_len(ceiling(length(texts) / batch_size))) {
     start_idx <- (i - 1) * batch_size + 1
     end_idx <- min(i * batch_size, length(texts))
-    batch_texts <- texts[start_idx:end_idx]
 
     encodings <- tokenizer(
-      batch_texts,
+      texts[start_idx:end_idx],
       padding = TRUE,
       truncation = TRUE,
       return_tensors = "pt"
     )
 
-    if (classifier$model$device == "cuda") {
-      encodings$input_ids <- encodings$input_ids$to(torch$device("cuda"))
-      encodings$attention_mask <- encodings$attention_mask$to(torch$device("cuda"))
-    }
+    moved <- to_device(encodings, device = classifier$model$device)
 
     with(torch$no_grad(), {
       outputs <- model(
-        input_ids = encodings$input_ids,
-        attention_mask = encodings$attention_mask
+        input_ids = moved$encodings$input_ids,
+        attention_mask = moved$encodings$attention_mask
       )
 
-      if (type == "class") {
-        preds <- torch$argmax(outputs$logits, dim = -1L)$cpu()$numpy()
-        predictions_list[[i]] <- preds
+      predictions_list[[i]] <- if (type == "class") {
+        torch$argmax(outputs$logits, dim = -1L)$cpu()$numpy()
       } else {
-        probs <- torch$nn$functional$softmax(outputs$logits, dim = -1L)$cpu()$numpy()
-        predictions_list[[i]] <- probs
+        torch$nn$functional$softmax(outputs$logits, dim = -1L)$cpu()$numpy()
       }
     })
   }
 
   if (type == "class") {
-    predictions <- unlist(predictions_list)
-    dplyr::mutate(data, prediction = predictions)
+    dplyr::mutate(data, prediction = unlist(predictions_list))
   } else {
-    all_probs <- do.call(rbind, predictions_list)
-    prob_df <- as.data.frame(all_probs)
+    prob_df <- as.data.frame(do.call(rbind, predictions_list))
     names(prob_df) <- paste0("prob_", seq_len(ncol(prob_df)))
     dplyr::bind_cols(data, prob_df)
   }

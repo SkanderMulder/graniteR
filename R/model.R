@@ -6,14 +6,13 @@
 #' @param device Device to use ("cpu" or "cuda")
 #' @return A Granite model object
 #' @export
-#' @examples
-#' \dontrun{
+#' @seealso \code{\link{granite_tokenizer}}
+#' @examplesIf requireNamespace("transformers")
 #' # Create an embedding model
 #' model <- granite_model()
 #'
 #' # Create a classification model
 #' model <- granite_model(task = "classification", num_labels = 3)
-#' }
 granite_model <- function(
   model_name = "ibm-granite/granite-embedding-english-r2",
   task = c("embedding", "classification", "regression"),
@@ -82,10 +81,9 @@ granite_model <- function(
 #' @param model_name Model identifier from Hugging Face Hub
 #' @return A Granite tokenizer object
 #' @export
-#' @examples
-#' \dontrun{
+#' @seealso \code{\link{granite_model}}
+#' @examplesIf requireNamespace("transformers")
 #' tokenizer <- granite_tokenizer()
-#' }
 granite_tokenizer <- function(
   model_name = "ibm-granite/granite-embedding-english-r2"
 ) {
@@ -101,6 +99,8 @@ granite_tokenizer <- function(
 }
 
 #' Print method for granite_model
+#' @param x granite_model object to print
+#' @param ... Additional arguments passed to print
 #' @export
 print.granite_model <- function(x, ...) {
   cat("Granite Model\n")
@@ -115,6 +115,8 @@ print.granite_model <- function(x, ...) {
 }
 
 #' Print method for granite_tokenizer
+#' @param x granite_tokenizer object to print
+#' @param ... Additional arguments passed to print
 #' @export
 print.granite_tokenizer <- function(x, ...) {
   cat("Granite Tokenizer\n")
