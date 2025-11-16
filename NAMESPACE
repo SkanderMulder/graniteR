@@ -2,6 +2,7 @@
 
 S3method(print,granite_model)
 S3method(print,granite_tokenizer)
+export(granite_check_system)
 export(granite_classifier)
 export(granite_embed)
 export(granite_model)

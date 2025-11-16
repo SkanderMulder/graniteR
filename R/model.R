@@ -21,26 +21,45 @@ granite_model <- function(
   device = "cpu"
 ) {
   task <- match.arg(task)
-
-  model <- switch(
-    task,
-    embedding = transformers$AutoModel$from_pretrained(model_name),
-    classification = {
-      if (is.null(num_labels)) {
-        stop("num_labels must be specified for classification tasks")
-      }
-      transformers$AutoModelForSequenceClassification$from_pretrained(
-        model_name,
-        num_labels = as.integer(num_labels)
+  
+  # Check CUDA availability if device is cuda
+  if (device == "cuda") {
+    cuda_available <- suppressWarnings(tryCatch({
+      torch$cuda$is_available()
+    }, error = function(e) FALSE))
+    
+    if (!cuda_available) {
+      warning(
+        "CUDA device requested but not available. Falling back to CPU. ",
+        "This may be due to incompatible CUDA/driver versions.",
+        call. = FALSE
       )
-    },
-    regression = {
-      transformers$AutoModelForSequenceClassification$from_pretrained(
-        model_name,
-        num_labels = 1L
-      )
+      device <- "cpu"
     }
-  )
+  }
+
+  # Suppress transformers warnings during model loading
+  model <- suppressWarnings({
+    switch(
+      task,
+      embedding = transformers$AutoModel$from_pretrained(model_name),
+      classification = {
+        if (is.null(num_labels)) {
+          stop("num_labels must be specified for classification tasks")
+        }
+        transformers$AutoModelForSequenceClassification$from_pretrained(
+          model_name,
+          num_labels = as.integer(num_labels)
+        )
+      },
+      regression = {
+        transformers$AutoModelForSequenceClassification$from_pretrained(
+          model_name,
+          num_labels = 1L
+        )
+      }
+    )
+  })
 
   if (device == "cuda") {
     model$to(torch$device("cuda"))

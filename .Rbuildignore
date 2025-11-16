@@ -14,3 +14,5 @@
 ^\.venv$
 ^pyproject\.toml$
 ^setup_python\.sh$
+^doc$
+^Meta$
