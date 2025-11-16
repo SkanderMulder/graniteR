@@ -82,3 +82,7 @@ credentials.json
 .cursor/
 .aider*
 .copilot/
+
+# Testing
+TEST_RESULTS.md
+test_*.R

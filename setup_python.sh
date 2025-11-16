@@ -6,7 +6,25 @@ echo "Setting up Python environment for graniteR using UV..."
 if ! command -v uv &> /dev/null; then
     echo "UV not found. Installing UV..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.cargo/bin:$PATH"
+
+    # UV can install to different locations, check common ones
+    if [ -f "$HOME/.cargo/bin/uv" ]; then
+        export PATH="$HOME/.cargo/bin:$PATH"
+    elif [ -f "$HOME/.local/bin/uv" ]; then
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
+    # Verify UV is now available
+    if ! command -v uv &> /dev/null; then
+        echo "ERROR: UV installation completed but command not found."
+        echo "Please add UV to your PATH manually:"
+        echo "  export PATH=\"\$HOME/.cargo/bin:\$PATH\""
+        echo "  or"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+        exit 1
+    fi
+
+    echo "UV successfully installed and configured!"
 fi
 
 VENV_PATH="${VENV_PATH:-.venv}"
