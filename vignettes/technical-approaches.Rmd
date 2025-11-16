@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = TRUE
 )
 ```
 
@@ -58,7 +58,7 @@ data <- tibble(
 )
 
 embeddings <- data |>
-  granite_embed(text)
+  granite_embed(text_col = text)
 
 # Embeddings are now static features for any downstream model
 ```
@@ -110,8 +110,8 @@ classifier <- granite_classifier(num_labels = 2)
 classifier <- classifier |>
   granite_train(
     data,
-    text,
-    label,
+    text_col = text,
+    label_col = label,
     epochs = 5,
     learning_rate = 2e-5
   )
@@ -237,26 +237,94 @@ Simulate larger batch sizes with limited memory:
 
 ### Benchmark Results
 
-Using a sentiment classification task (1000 training examples):
+The following benchmark compares the two approaches using a sample classification task:
 
-| Approach | Accuracy | Training Time | Memory | Hardware |
-|----------|----------|---------------|---------|----------|
-| Fixed Embeddings + Random Forest | 0.87 | 2 min | 2 GB | CPU |
-| Fixed Embeddings + Ridge Regression | 0.85 | 30 sec | 1 GB | CPU |
-| Fine-Tuned (3 epochs) | 0.92 | 15 min | 8 GB | GPU |
-| Fine-Tuned (5 epochs) | 0.94 | 25 min | 8 GB | GPU |
+```{r benchmark, eval = TRUE, warning = FALSE, message = FALSE}
+set.seed(42)
 
-### Domain Adaptation Example
+# Create sample training data
+train_data <- tibble(
+  text = c(
+    "This product exceeded my expectations",
+    "Terrible quality, waste of money",
+    "Great value for the price",
+    "Do not recommend, very disappointed",
+    "Amazing features and performance",
+    "Poor customer service experience"
+  ),
+  label = c(1, 0, 1, 0, 1, 0)
+)
 
-Medical text classification (specialized domain):
+test_data <- tibble(
+  text = c(
+    "Excellent purchase, highly satisfied",
+    "Not worth the money"
+  ),
+  label = c(1, 0)
+)
 
-| Approach | F1 Score |
-|----------|----------|
-| Fixed Embeddings | 0.78 |
-| Fine-Tuned (general data) | 0.88 |
-| Fine-Tuned (in-domain data) | 0.94 |
+# Approach 1: Fixed embeddings
+time_embed_start <- Sys.time()
+train_embeddings <- train_data |>
+  granite_embed(text_col = text)
+test_embeddings <- test_data |>
+  granite_embed(text_col = text)
+time_embed_end <- Sys.time()
 
-Fine-tuning shows substantial gains when domain differs from pre-training corpus.
+# Train simple classifier on embeddings
+if (requireNamespace("glmnet", quietly = TRUE)) {
+  embed_matrix <- as.matrix(train_embeddings |> select(starts_with("dim_")))
+  test_matrix <- as.matrix(test_embeddings |> select(starts_with("dim_")))
+
+  ridge_model <- glmnet::cv.glmnet(
+    x = embed_matrix,
+    y = train_data$label,
+    alpha = 0,
+    family = "binomial"
+  )
+
+  predictions <- predict(ridge_model, test_matrix, type = "class")
+  embed_accuracy <- mean(predictions == test_data$label)
+} else {
+  embed_accuracy <- NA
+}
+
+embed_time <- as.numeric(difftime(time_embed_end, time_embed_start, units = "secs"))
+
+# Approach 2: Fine-tuning (if sufficient data available)
+# Note: Requires more data for realistic results
+# This is illustrative - production use requires larger datasets
+
+benchmark_results <- tibble(
+  Approach = c(
+    "Fixed Embeddings + Ridge",
+    "Fine-Tuning (requires larger dataset)"
+  ),
+  `Training Time (sec)` = c(
+    round(embed_time, 1),
+    "N/A - needs 1000+ examples"
+  ),
+  `Accuracy` = c(
+    if (!is.na(embed_accuracy)) round(embed_accuracy, 2) else "N/A",
+    "N/A - needs larger dataset"
+  ),
+  Hardware = c("CPU", "GPU recommended")
+)
+
+knitr::kable(benchmark_results, caption = "Performance comparison on sample task")
+```
+
+**Note**: This benchmark uses a minimal dataset for demonstration. Production benchmarks require 1000+ training examples for meaningful comparison. Fine-tuning typically shows 5-10% accuracy improvements on domain-specific tasks with sufficient data, but requires GPU acceleration and longer training times.
+
+### Domain Adaptation
+
+Fine-tuning shows substantial gains when the domain differs from the pre-training corpus. The performance improvement scales with:
+
+- Domain specificity (medical, legal, technical text shows larger gains)
+- Dataset size (1000+ examples needed for stable fine-tuning)
+- Quality of labels (clean, consistent annotations improve results)
+
+For specialized domains, fine-tuning can improve F1 scores by 10-20 percentage points compared to fixed embeddings, but requires careful validation to avoid overfitting.
 
 ## Practical Recommendations
 
