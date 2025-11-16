@@ -22,7 +22,8 @@ Imports:
 Suggests:
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    readr
 VignetteBuilder: knitr
 URL: https://github.com/skandermulder/graniteR
 BugReports: https://github.com/skandermulder/graniteR/issues

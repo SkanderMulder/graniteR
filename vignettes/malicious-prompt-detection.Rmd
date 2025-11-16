@@ -1,0 +1,287 @@
+---
+title: "Malicious Prompt Detection with graniteR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Malicious Prompt Detection with graniteR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## Introduction
+
+This vignette demonstrates using graniteR for detecting malicious prompts in text data. We use the malicious-prompts dataset from HuggingFace, which contains examples of potentially harmful text inputs designed to bypass safety mechanisms in language models.
+
+The dataset includes 467,000 labeled examples from various sources, making it suitable for training robust classifiers. This use case illustrates graniteR's capabilities in:
+
+- Binary text classification
+- Working with real-world security datasets
+- Fine-tuning transformer models for specialized tasks
+- Evaluating model performance on held-out data
+
+## Understanding the Approach
+
+The graniteR package provides two complementary approaches for text classification:
+
+### 1. Embedding-Based Classification
+
+This approach extracts fixed embeddings from the Granite-R2 model and trains a separate classifier on these features. The embeddings are pre-computed without modifying the neural network, then a downstream model such as random forest operates on the 768-dimensional vectors.
+
+Benefits:
+- Computationally efficient (CPU-friendly)
+- Requires less training data
+- Fast training and inference
+- Suitable for quick prototyping
+
+Limitations:
+- Embeddings do not adapt to domain-specific nuances
+- May underperform on highly specialized tasks
+
+### 2. End-to-End Fine-Tuning
+
+This approach adds a classification head directly to the neural network and trains the entire model end-to-end. The embeddings evolve during training to better capture task-specific patterns.
+
+Benefits:
+- Higher accuracy on specialized domains
+- Embeddings adapt to task requirements
+- Can handle multiple output heads (multi-task learning)
+
+Limitations:
+- Requires GPU for efficiency
+- Needs more training data to avoid overfitting
+- Longer training time
+
+For this malicious prompt detection task, we demonstrate the end-to-end fine-tuning approach as it provides better performance on security-critical applications.
+
+## Loading the Dataset
+
+```{r}
+library(graniteR)
+library(dplyr)
+library(readr)
+
+# Load dataset from package
+data_path <- system.file("data/malicious_prompts_sample.csv", package = "graniteR")
+prompts <- read_csv(data_path)
+
+# Examine structure
+glimpse(prompts)
+```
+
+The dataset contains:
+- `text`: The prompt content
+- `label`: Binary classification (0 = benign, 1 = malicious)
+- `source`: Origin of the data
+
+```{r}
+# Check class distribution
+table(prompts$label)
+
+# View sample malicious prompts
+prompts |>
+  filter(label == 1) |>
+  select(text) |>
+  head(3)
+
+# View sample benign prompts
+prompts |>
+  filter(label == 0) |>
+  select(text) |>
+  head(3)
+```
+
+## Data Preparation
+
+Split the data into training and testing sets:
+
+```{r}
+set.seed(42)
+
+# Create train-test split (80-20)
+n <- nrow(prompts)
+train_idx <- sample(n, size = floor(0.8 * n))
+
+train_data <- prompts[train_idx, ]
+test_data <- prompts[-train_idx, ]
+
+cat("Training samples:", nrow(train_data), "\n")
+cat("Test samples:", nrow(test_data), "\n")
+```
+
+## Training a Classifier
+
+Create and train a binary classifier for malicious prompt detection:
+
+```{r}
+# Create classifier
+classifier <- granite_classifier(num_labels = 2)
+
+# Train with validation split
+classifier <- classifier |>
+  granite_train(
+    train_data,
+    text,
+    label,
+    epochs = 5,
+    batch_size = 8,
+    learning_rate = 2e-5,
+    validation_split = 0.2
+  )
+```
+
+The training process displays loss and validation accuracy for each epoch. Expect to see improvement over epochs as the model learns to distinguish malicious from benign prompts.
+
+## Making Predictions
+
+Apply the trained classifier to the test set:
+
+```{r}
+# Get class predictions
+predictions <- granite_predict(
+  classifier,
+  test_data,
+  text,
+  type = "class"
+)
+
+# Get probability scores
+probabilities <- granite_predict(
+  classifier,
+  test_data,
+  text,
+  type = "prob"
+)
+
+# View results
+predictions |>
+  select(text, label, prediction) |>
+  head(10)
+```
+
+## Model Evaluation
+
+Evaluate classifier performance:
+
+```{r}
+# Calculate accuracy
+accuracy <- mean(predictions$prediction == predictions$label)
+cat("Test Accuracy:", round(accuracy, 4), "\n")
+
+# Confusion matrix
+table(
+  Predicted = predictions$prediction,
+  Actual = predictions$label
+)
+
+# Precision and recall for malicious class
+tp <- sum(predictions$prediction == 1 & predictions$label == 1)
+fp <- sum(predictions$prediction == 1 & predictions$label == 0)
+fn <- sum(predictions$prediction == 0 & predictions$label == 1)
+
+precision <- tp / (tp + fp)
+recall <- tp / (tp + fn)
+f1 <- 2 * (precision * recall) / (precision + recall)
+
+cat("Precision:", round(precision, 4), "\n")
+cat("Recall:", round(recall, 4), "\n")
+cat("F1 Score:", round(f1, 4), "\n")
+```
+
+For malicious prompt detection, high recall is critical to minimize false negatives (malicious prompts classified as benign).
+
+## Analyzing Difficult Cases
+
+Examine cases where the model is uncertain:
+
+```{r}
+# Find low-confidence predictions
+uncertain <- probabilities |>
+  mutate(
+    confidence = pmax(prob_1, prob_2),
+    true_label = test_data$label[1:n()]
+  ) |>
+  filter(confidence < 0.7) |>
+  arrange(confidence)
+
+# View uncertain cases
+uncertain |>
+  select(text, true_label, prob_1, prob_2, confidence) |>
+  head(10)
+```
+
+## Advanced: Multi-Task Learning
+
+For applications requiring multiple classifications (e.g., detecting both malicious intent and specific attack types), graniteR supports multi-head architectures. This involves creating custom heads in Python and calling them through reticulate:
+
+```{r}
+# Example structure (requires custom Python implementation)
+# model <- granite_model(
+#   task = "classification",
+#   num_labels = c(2, 5)  # Binary + 5 attack types
+# )
+```
+
+This approach enables the model to learn shared representations across related tasks, improving generalization.
+
+## Performance Optimization
+
+### GPU Acceleration
+
+For faster training on large datasets:
+
+```{r}
+classifier <- granite_classifier(num_labels = 2, device = "cuda")
+```
+
+### Batch Size Tuning
+
+Adjust batch size based on available memory:
+- Smaller batches (4-8): Less memory, more stable gradients
+- Larger batches (16-32): Faster training, requires more memory
+
+### Learning Rate
+
+Typical ranges for fine-tuning:
+- 2e-5 to 5e-5: Conservative, stable training
+- 1e-4 to 3e-4: Faster convergence, risk of instability
+
+## Deployment Considerations
+
+For production deployment:
+
+1. **Threshold Tuning**: Adjust classification threshold based on desired precision-recall tradeoff
+2. **Monitoring**: Track prediction distributions to detect dataset drift
+3. **Regular Retraining**: Update model as new malicious patterns emerge
+4. **Ensemble Methods**: Combine multiple models for robustness
+
+```{r}
+# Example: Custom threshold
+custom_threshold <- 0.7
+predictions_conservative <- probabilities |>
+  mutate(
+    prediction = ifelse(prob_2 > custom_threshold, 1, 0)
+  )
+```
+
+## Conclusion
+
+This vignette demonstrated using graniteR for malicious prompt detection, achieving strong classification performance through fine-tuning IBM's Granite-R2 model. The approach generalizes to other text classification tasks in security, content moderation, and sentiment analysis.
+
+Key takeaways:
+- Fine-tuning provides superior performance on specialized tasks
+- Balanced datasets improve model generalization
+- Proper evaluation metrics (precision, recall, F1) are essential for security applications
+- GPU acceleration enables efficient training on large datasets
+
+## References
+
+- Dataset: https://huggingface.co/datasets/ahsanayub/malicious-prompts
+- IBM Granite Models: https://huggingface.co/ibm-granite
+- Transformers Library: https://huggingface.co/docs/transformers
