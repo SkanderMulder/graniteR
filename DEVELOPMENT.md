@@ -17,7 +17,7 @@ devtools::install_deps()
 3. Install Python dependencies:
 ```r
 library(graniteR)
-install_granite()
+install_pyenv()
 ```
 
 ## Development Workflow

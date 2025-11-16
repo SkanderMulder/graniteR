@@ -58,7 +58,7 @@ This document summarizes the quality audit of the `graniteR` package against cur
 
 ### Strengths
 
--   **Python Integration:** Excellent use of `reticulate`, `uv`, and helper functions (`install_granite()`) for dependency management.
+-   **Python Integration:** Excellent use of `reticulate`, `uv`, and helper functions (`install_pyenv()`) for dependency management.
 -   **Documentation:** High-quality vignettes, `README`, and supplementary guides (`SETUP.md`).
 -   **Data Management:** Follows best practices perfectly using `data-raw/`, `usethis::use_data()`, and providing clear data documentation.
 -   **Code & Package Structure:** Clean, well-organized, and adheres to standard conventions.

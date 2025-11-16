@@ -40,7 +40,7 @@ Comprehensive guide to multi-class classification with graniteR.
 
 All examples assume you have:
 1. Installed graniteR: `devtools::install_github("skandermulder/graniteR")`
-2. Set up Python dependencies: `install_granite()`
+2. Set up Python dependencies: `install_pyenv()`
 
 To run an example:
 

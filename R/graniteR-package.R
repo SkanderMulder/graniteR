@@ -10,7 +10,7 @@
 #' }
 #'
 #' @section Installation:
-#' The package requires Python dependencies. Use \code{install_granite()}
+#' The package requires Python dependencies. Use \code{install_pyenv()}
 #' for fast setup with UV package manager.
 #'
 #' @section Getting Started:

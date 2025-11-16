@@ -8,7 +8,7 @@
 - Added `granite_classifier()` for classification tasks
 - Added `granite_train()` for fine-tuning classifiers
 - Added `granite_predict()` for making predictions
-- Added `install_granite()` for Python dependency installation
+- Added `install_pyenv()` for Python dependency installation
 - Support for CPU and GPU (CUDA) devices
 - Pipe-friendly interface using native R pipe |>
 - Follows tidyverse conventions

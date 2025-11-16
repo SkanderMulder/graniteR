@@ -11,13 +11,13 @@ torch <- NULL
     }, error = function(e) {
       packageStartupMessage(
         "Python dependencies not found. ",
-        "Run install_granite() to set up."
+        "Run install_pyenv() to set up."
       )
     })
   } else {
     packageStartupMessage(
       "Python not configured. ",
-      "Run install_granite() to set up."
+      "Run install_pyenv() to set up."
     )
   }
 }
@@ -41,11 +41,11 @@ torch <- NULL
 #' @importFrom processx run
 #' @examplesIf requireNamespace("processx")
 #' \dontrun{
-#' install_granite()
+#' install_pyenv()
 #' # Python path is configured automatically
 #' # To make permanent, add to .Rprofile as shown in output
 #' }
-install_granite <- function(venv_path = ".venv") {
+install_pyenv <- function(venv_path = ".venv") {
   if (!requireNamespace("processx", quietly = TRUE)) {
     stop("Package 'processx' is required. Install it with: install.packages('processx')")
   }
@@ -56,7 +56,7 @@ install_granite <- function(venv_path = ".venv") {
     cli::cli_alert_info("Install it with: {.code curl -LsSf https://astral.sh/uv/install.sh | sh}")
     cli::cli_alert_info("Or run: {.file ./setup_python.sh}")
     cli::cli_alert_info("After installation, you may need to add UV to your PATH")
-    cli::cli_alert_info("Then restart R and run {.run install_granite()} again")
+    cli::cli_alert_info("Then restart R and run {.run install_pyenv()} again")
     return(invisible(FALSE))
   }
 

@@ -69,5 +69,5 @@ if (reticulate::py_available(initialize = TRUE) && reticulate::py_module_availab
   })
 } else {
   message("⚠️ Python dependencies not found. Tests requiring them will be skipped.")
-  message("   Run install_granite() to set up the Python environment.")
+  message("   Run install_pyenv() to set up the Python environment.")
 }

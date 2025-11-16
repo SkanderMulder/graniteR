@@ -24,7 +24,7 @@ reference:
   contents:
   - granite_model
   - granite_tokenizer
-  - install_granite
+  - install_pyenv
 
 - title: Embeddings
   desc: Generate sentence embeddings

@@ -56,7 +56,7 @@ Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
 
 ```{r}
 library(graniteR)
-install_granite()  # Uses UV
+install_pyenv()  # Uses UV
 ```
 
 ### Verifying Setup

@@ -20,7 +20,7 @@ devtools::install_github("skandermulder/graniteR")
 
 # Install Python dependencies (uses UV - completes in 1-2 minutes)
 library(graniteR)
-install_granite()
+install_pyenv()
 ```
 
 ## Quick Start

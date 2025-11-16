@@ -1,4 +1,4 @@
-test_that("install_granite checks for processx package", {
+test_that("install_pyenv checks for processx package", {
   skip_on_cran()
   
   # Mock environment without processx
@@ -7,14 +7,14 @@ test_that("install_granite checks for processx package", {
     .env = "base", # Specify the environment of the function to mock
     {
       expect_error(
-        install_granite(),
+        install_pyenv(),
         "Package 'processx' is required"
       )
     }
   )
 })
 
-test_that("install_granite handles UV not available", {
+test_that("install_pyenv handles UV not available", {
   skip_on_cran()
   skip_if_not_installed("processx")
   
@@ -22,15 +22,13 @@ test_that("install_granite handles UV not available", {
     requireNamespace = function(package, quietly = TRUE) TRUE,
     .env = "base", # Specify the environment of the function to mock
     {
-      mockery::stub(install_granite, "processx::run", function(...) stop("command not found"))
-      
-      result <- suppressMessages(install_granite())
+      result <- suppressMessages(install_pyenv())
       expect_false(result)
     }
   )
 })
 
-test_that("install_granite creates venv path", {
+test_that("install_pyenv creates venv path", {
   skip_on_cran()
   skip_if_not_installed("processx")
   
@@ -41,24 +39,17 @@ test_that("install_granite creates venv path", {
     requireNamespace = function(package, quietly = TRUE) TRUE,
     .env = "base", # Specify the environment of the function to mock
     {
-      mockery::stub(install_granite, "processx::run", function(cmd, args, ...) {
-        if (cmd == "uv" && args[1] == "--version") {
-          return(list(status = 0, stdout = "uv 0.1.0"))
-        }
-        return(list(status = 0))
-      })
+      mockery::stub(install_pyenv, "system.file", function(...) temp_dir)
+      mockery::stub(install_pyenv, "dir.exists", function(...) FALSE)
+      mockery::stub(install_pyenv, "file.exists", function(...) FALSE)
       
-      mockery::stub(install_granite, "system.file", function(...) temp_dir)
-      mockery::stub(install_granite, "dir.exists", function(...) FALSE)
-      mockery::stub(install_granite, "file.exists", function(...) FALSE)
-      
-      result <- suppressMessages(install_granite(venv_path = "test_venv"))
+      result <- suppressMessages(install_pyenv(venv_path = "test_venv"))
       expect_true(result)
     }
   )
 })
 
-test_that("install_granite uses existing venv", {
+test_that("install_pyenv uses existing venv", {
   skip_on_cran()
   skip_if_not_installed("processx")
   
@@ -69,21 +60,14 @@ test_that("install_granite uses existing venv", {
     requireNamespace = function(package, quietly = TRUE) TRUE,
     .env = "base", # Specify the environment of the function to mock
     {
-      mockery::stub(install_granite, "processx::run", function(cmd, args, ...) {
-        list(status = 0, stdout = "uv 0.1.0")
-      })
-      
-      mockery::stub(install_granite, "system.file", function(...) temp_dir)
-      mockery::stub(install_granite, "dir.exists", function(...) TRUE)
-      mockery::stub(install_granite, "file.exists", function(...) FALSE)
-      
-      result <- suppressMessages(install_granite())
-      expect_true(result)
+      mockery::stub(install_pyenv, "system.file", function(...) temp_dir)
+      mockery::stub(install_pyenv, "dir.exists", function(...) TRUE)
+            result <- suppressMessages(install_pyenv())      expect_true(result)
     }
   )
 })
 
-test_that("install_granite uses requirements.txt when available", {
+test_that("install_pyenv uses requirements.txt when available", {
   skip_on_cran()
   skip_if_not_installed("processx")
   
@@ -93,15 +77,15 @@ test_that("install_granite uses requirements.txt when available", {
     requireNamespace = function(package, quietly = TRUE) TRUE,
     .env = "base", # Specify the environment of the function to mock
     {
-      mockery::stub(install_granite, "processx::run", function(cmd, args, ...) {
+      mockery::stub(install_pyenv, "processx::run", function(cmd, args, ...) {
         list(status = 0, stdout = "uv 0.1.0")
       })
       
-      mockery::stub(install_granite, "system.file", function(...) temp_dir)
-      mockery::stub(install_granite, "dir.exists", function(...) TRUE)
-      mockery::stub(install_granite, "file.exists", function(...) TRUE)
+      mockery::stub(install_pyenv, "system.file", function(...) temp_dir)
+      mockery::stub(install_pyenv, "dir.exists", function(...) TRUE)
+      mockery::stub(install_pyenv, "file.exists", function(...) TRUE)
       
-      result <- suppressMessages(install_granite())
+      result <- suppressMessages(install_pyenv())
       expect_true(result)
     }
   )

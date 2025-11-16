@@ -47,7 +47,7 @@ tibble(text = "Hello world") |> embed(text)
 
 ```r
 library(graniteR)
-install_granite()  # Uses UV for fast installation
+install_pyenv()  # Uses UV for fast installation
 ```
 
 ## Why UV?

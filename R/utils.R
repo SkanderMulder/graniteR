@@ -50,7 +50,7 @@ granite_check_system <- function() {
     cli::cli_alert_success("Version: {as.character(py_version)}")
   } else {
     cli::cli_alert_danger("Python not available")
-    cli::cli_alert_info("Run {.run install_granite()}")
+    cli::cli_alert_info("Run {.run install_pyenv()}")
   }
 
   # Python packages
@@ -66,7 +66,7 @@ granite_check_system <- function() {
     cli::cli_alert_danger("torch")
   }
   if (py_available && (!transformers_ok || !torch_ok)) {
-    cli::cli_alert_info("Run {.run install_granite()}")
+    cli::cli_alert_info("Run {.run install_pyenv()}")
   }
 
   # CUDA availability
@@ -93,7 +93,7 @@ granite_check_system <- function() {
   cli::cli_h2("Recommendations")
   if (!py_available || !transformers_ok || !torch_ok) {
     cli::cli_ul(c(
-      "Run {.run install_granite()} for fast setup (uses UV)",
+      "Run {.run install_pyenv()} for fast setup (uses UV)",
       "Or run {.file ./setup_python.sh} from package directory"
     ))
   } else {
