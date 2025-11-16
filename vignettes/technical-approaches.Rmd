@@ -58,7 +58,7 @@ data <- tibble(
 )
 
 embeddings <- data |>
-  granite_embed(text_col = text)
+  embed(text_col = text)
 
 # Embeddings are now static features for any downstream model
 ```
@@ -104,11 +104,11 @@ This approach integrates a classification head directly into the neural network:
 
 ```{r}
 # Create classifier with integrated head
-classifier <- granite_classifier(num_labels = 2)
+classifier <- classifier(num_labels = 2)
 
 # Fine-tune entire model
 classifier <- classifier |>
-  granite_train(
+  train(
     data,
     text_col = text,
     label_col = label,
@@ -155,7 +155,7 @@ Single input, multiple binary outputs (labels are not mutually exclusive):
 # Example: Classify text with multiple properties
 # Label 1: Is it formal? Label 2: Is it technical? Label 3: Is it persuasive?
 
-classifier <- granite_classifier(num_labels = 3)
+classifier <- classifier(num_labels = 3)
 
 # Training data has multiple binary labels per example
 train_data <- tibble(
@@ -266,9 +266,9 @@ test_data <- tibble(
 # Approach 1: Fixed embeddings
 time_embed_start <- Sys.time()
 train_embeddings <- train_data |>
-  granite_embed(text_col = text)
+  embed(text_col = text)
 test_embeddings <- test_data |>
-  granite_embed(text_col = text)
+  embed(text_col = text)
 time_embed_end <- Sys.time()
 
 # Train simple classifier on embeddings

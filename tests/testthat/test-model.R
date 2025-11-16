@@ -13,7 +13,7 @@ test_that("granite_tokenizer creates tokenizer object", {
   expect_s3_class(tokenizer, "granite_tokenizer")
 })
 
-test_that("granite_classifier requires num_labels", {
+test_that("classifier requires num_labels", {
   skip_if_no_python_or_modules()
 
   expect_error(

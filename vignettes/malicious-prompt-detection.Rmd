@@ -136,11 +136,11 @@ Create and train a binary classifier for malicious prompt detection:
 
 ```{r}
 # Create classifier
-classifier <- granite_classifier(num_labels = 2)
+classifier <- classifier(num_labels = 2)
 
 # Train with validation split
 classifier <- classifier |>
-  granite_train(
+  train(
     train_data,
     text,
     label,
@@ -159,7 +159,7 @@ Apply the trained classifier to the test set:
 
 ```{r}
 # Get class predictions
-predictions <- granite_predict(
+predictions <- predict(
   classifier,
   test_data,
   text,
@@ -167,7 +167,7 @@ predictions <- granite_predict(
 )
 
 # Get probability scores
-probabilities <- granite_predict(
+probabilities <- predict(
   classifier,
   test_data,
   text,
@@ -252,7 +252,7 @@ This approach enables the model to learn shared representations across related t
 For faster training on large datasets:
 
 ```{r}
-classifier <- granite_classifier(num_labels = 2, device = "cuda")
+classifier <- classifier(num_labels = 2, device = "cuda")
 ```
 
 ### Batch Size Tuning

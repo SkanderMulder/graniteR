@@ -2,8 +2,8 @@
 #'
 #' @param data A data frame or tibble containing text
 #' @param text_col Column name containing text (unquoted or string)
-#' @param model Granite model object (if NULL, creates default embedding model)
-#' @param tokenizer Granite tokenizer object (if NULL, creates default tokenizer)
+#' @param model Model object (if NULL, creates default embedding model)
+#' @param tokenizer Tokenizer object (if NULL, creates default tokenizer)
 #' @param batch_size Batch size for processing
 #' @return Data frame with added embeddings column
 #' @export
@@ -11,8 +11,8 @@
 #' @examplesIf requireNamespace("transformers")
 #' library(dplyr)
 #' data <- tibble::tibble(text = c("Hello world", "Test sentence"))
-#' data |> granite_embed(text_col = text)
-granite_embed <- function(
+#' data |> embed(text_col = text)
+embed <- function(
   data,
   text_col,
   model = NULL,

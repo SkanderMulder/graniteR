@@ -1,6 +1,6 @@
-#' Create a Granite classifier
+#' Create a text classifier
 #'
-#' Creates a text classifier using IBM's Granite embedding model. Supports both
+#' Creates a text classifier using transformer encoder models. Supports both
 #' binary classification (2 classes) and multi-class classification (3+ classes).
 #' The number of classes can be specified explicitly or inferred from training data.
 #'
@@ -10,17 +10,17 @@
 #' @param label_col Optional label column name (unquoted) to infer num_labels from
 #' @param model_name Model identifier from Hugging Face Hub
 #' @param device Device to use ("cpu" or "cuda")
-#' @return A Granite classifier object with model and tokenizer
+#' @return A classifier object with model and tokenizer
 #' @export
-#' @seealso \code{\link{granite_train}}, \code{\link{granite_predict}}
+#' @seealso \code{\link{train}}, \code{\link{predict}}
 #' @examplesIf requireNamespace("transformers")
 #' # Explicit num_labels
-#' classifier <- granite_classifier(num_labels = 2)
+#' clf <- classifier(num_labels = 2)
 #'
 #' # Infer from data
 #' data <- tibble::tibble(text = c("a", "b"), label = c("high", "low"))
-#' classifier <- granite_classifier(data = data, label_col = label)
-granite_classifier <- function(
+#' clf <- classifier(data = data, label_col = label)
+classifier <- function(
   num_labels = NULL,
   data = NULL,
   label_col = NULL,
@@ -37,8 +37,8 @@ granite_classifier <- function(
   
   if (is.null(num_labels)) {
     stop("num_labels must be specified or inferred from data. ",
-         "Use: granite_classifier(num_labels = 2) or ",
-         "granite_classifier(data = data, label_col = label)")
+         "Use: classifier(num_labels = 2) or ",
+         "classifier(data = data, label_col = label)")
   }
   model <- granite_model(
     model_name = model_name,
@@ -60,13 +60,13 @@ granite_classifier <- function(
   )
 }
 
-#' Train a Granite classifier
+#' Train a text classifier
 #'
 #' Trains a text classifier on labeled data. Supports integer, character, and
 #' factor labels. Character and factor labels are automatically converted to
 #' integers (alphabetically for characters, by factor levels for factors).
 #'
-#' @param classifier Granite classifier object
+#' @param classifier Classifier object
 #' @param data Training data frame
 #' @param text_col Column name containing text (unquoted or string)
 #' @param label_col Column name containing labels (unquoted or string).
@@ -78,7 +78,7 @@ granite_classifier <- function(
 #' @param verbose Whether to print training progress (default: TRUE)
 #' @return Updated classifier object with trained model
 #' @export
-#' @seealso \code{\link{granite_classifier}}, \code{\link{granite_predict}}
+#' @seealso \code{\link{classifier}}, \code{\link{predict}}
 #' @examplesIf requireNamespace("transformers")
 #' library(dplyr)
 #'
@@ -87,17 +87,17 @@ granite_classifier <- function(
 #'   text = c("positive example", "negative example"),
 #'   label = c(0, 1)
 #' )
-#' classifier <- granite_classifier(num_labels = 2) |>
-#'   granite_train(data, text, label, epochs = 3)
+#' clf <- classifier(num_labels = 2) |>
+#'   train(data, text, label, epochs = 3)
 #'
 #' # Multi-class with character labels (auto-converted alphabetically)
 #' data_multi <- tibble::tibble(
 #'   text = c("urgent issue", "minor bug", "question", "critical"),
 #'   priority = c("high", "low", "medium", "critical")
 #' )
-#' classifier_multi <- granite_classifier(num_labels = 4) |>
-#'   granite_train(data_multi, text, priority, epochs = 5)
-granite_train <- function(
+#' clf_multi <- classifier(num_labels = 4) |>
+#'   train(data_multi, text, priority, epochs = 5)
+train <- function(
   classifier,
   data,
   text_col,
@@ -223,25 +223,27 @@ evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, dev
   correct / length(labels)
 }
 
-#' Make predictions with a Granite classifier
+#' Make predictions with a trained classifier
 #'
-#' @param classifier Trained Granite classifier object
+#' @param classifier Trained classifier object
 #' @param data Data frame containing text to classify
 #' @param text_col Column name containing text (unquoted or string)
 #' @param type Type of prediction ("class" or "prob")
 #' @param batch_size Batch size for prediction
+#' @param ... Additional arguments (unused, for S3 consistency)
 #' @return Data frame with predictions
 #' @export
-#' @seealso \code{\link{granite_classifier}}, \code{\link{granite_train}}
+#' @seealso \code{\link{classifier}}, \code{\link{train}}
 #' @examplesIf requireNamespace("transformers")
-#' # Assuming 'classifier' is a trained model and 'new_data' is a tibble
-#' # predictions <- granite_predict(classifier, new_data, text_col = text)
-granite_predict <- function(
+#' # Assuming 'clf' is a trained model and 'new_data' is a tibble
+#' # predictions <- predict(clf, new_data, text_col = text)
+predict.granite_classifier <- function(
   classifier,
   data,
   text_col,
   type = c("class", "prob"),
-  batch_size = 32
+  batch_size = 32,
+  ...
 ) {
   type <- match.arg(type)
 

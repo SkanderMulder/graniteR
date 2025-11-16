@@ -60,6 +60,13 @@ skip_if_no_python_or_modules <- function() {
 # Announce whether tests will be skipped or not
 if (reticulate::py_available(initialize = TRUE) && reticulate::py_module_available("transformers")) {
   message("✓ Python environment ready for tests (transformers found).")
+  # Force import of transformers and torch for tests
+  tryCatch({
+    assignInNamespace("transformers", reticulate::import("transformers", delay_load = FALSE), "graniteR")
+    assignInNamespace("torch", reticulate::import("torch", delay_load = FALSE), "graniteR")
+  }, error = function(e) {
+    message("Failed to force import transformers/torch in tests: ", e$message)
+  })
 } else {
   message("⚠️ Python dependencies not found. Tests requiring them will be skipped.")
   message("   Run install_granite() to set up the Python environment.")

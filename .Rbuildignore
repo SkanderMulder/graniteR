@@ -19,3 +19,4 @@
 ^_pkgdown\.yml$
 ^\.claude$
 ^inst/\.venv$
+^LICENSE\.md$

@@ -6,9 +6,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
-R interface to [IBM's Granite Embedding R2 model](https://arxiv.org/html/2508.21085v1) (149M parameters) for text embeddings and multi-class classification. Based on ModernBERT with Flash Attention, achieving 19-44% inference speed improvements over comparable models.
+R interface for text embeddings and classification using transformer encoder models. Designed as a homage to [IBM's Granite Embedding R2](https://arxiv.org/html/2508.21085v1) (149M parameters, ModernBERT with Flash Attention), but compatible with any Hugging Face transformer encoder model.
 
 **Privacy**: All models execute locally. No data transmission to external servers.
+
+> **Note**: While optimized for Granite models, this package works with other encoder models (BERT, RoBERTa, DistilBERT, etc.) by specifying `model_name` in function calls.
 
 ## Installation
 
@@ -29,7 +31,7 @@ library(graniteR)
 library(dplyr)
 
 tibble(text = c("positive", "negative")) |>
-  granite_embed(text)  # 768-dimensional dense vectors
+  embed(text)  # 768-dimensional dense vectors
 ```
 
 **Binary Classification:**
@@ -39,10 +41,10 @@ train <- tibble(
   label = c(1, 0, 1, 0)
 )
 
-classifier <- granite_classifier(num_labels = 2) |>
-  granite_train(train, text_col = text, label_col = label, epochs = 3)
+clf <- classifier(num_labels = 2) |>
+  train(train, text_col = text, label_col = label, epochs = 3)
 
-granite_predict(classifier, tibble(text = c("excellent", "bad")), text_col = text)
+predict(clf, tibble(text = c("excellent", "bad")), text_col = text)
 ```
 
 **Multi-Class Classification:**
@@ -52,12 +54,12 @@ train <- tibble(
   priority = c("high", "low", "critical", "medium")
 )
 
-classifier <- granite_classifier(num_labels = 4) |>
-  granite_train(train, text_col = text, label_col = priority, epochs = 5)
+clf <- classifier(num_labels = 4) |>
+  train(train, text_col = text, label_col = priority, epochs = 5)
 
 # Returns class predictions or probability distributions
-granite_predict(classifier, new_data, text_col = text, type = "class")
-granite_predict(classifier, new_data, text_col = text, type = "prob")
+predict(clf, new_data, text_col = text, type = "class")
+predict(clf, new_data, text_col = text, type = "prob")
 ```
 
 ## Features

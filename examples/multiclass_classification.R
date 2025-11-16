@@ -53,12 +53,12 @@ cat("Number of classes:", n_classes, "\n")
 cat("\n=== Training Classifier ===\n")
 
 # IMPORTANT: num_labels must match the number of unique classes
-classifier <- granite_classifier(num_labels = n_classes)
+classifier <- classifier(num_labels = n_classes)
 
 # Train the model
 # Character labels are automatically converted to integers in alphabetical order
 # critical -> 0, high -> 1, low -> 2, medium -> 3
-classifier <- granite_train(
+classifier <- train(
   classifier, 
   tickets, 
   text_col = text, 
@@ -88,12 +88,12 @@ cat("\nNew tickets to classify:\n")
 print(new_tickets)
 
 # Get class predictions (returns predicted class as integer)
-predictions <- granite_predict(classifier, new_tickets, text_col = text, type = "class")
+predictions <- predict(classifier, new_tickets, text_col = text, type = "class")
 cat("\nClass predictions (as integers):\n")
 print(predictions)
 
 # Get probability distributions across all classes
-probabilities <- granite_predict(classifier, new_tickets, text_col = text, type = "prob")
+probabilities <- predict(classifier, new_tickets, text_col = text, type = "prob")
 cat("\nProbability distributions:\n")
 print(probabilities)
 
@@ -136,8 +136,8 @@ cat("Custom factor levels:", levels(tickets_factor$priority), "\n")
 cat("This ensures: low=0, medium=1, high=2, critical=3\n")
 
 # Train with factor labels
-classifier_ordered <- granite_classifier(num_labels = 4)
-classifier_ordered <- granite_train(
+classifier_ordered <- classifier(num_labels = 4)
+classifier_ordered <- train(
   classifier_ordered, 
   tickets_factor, 
   text_col = text, 

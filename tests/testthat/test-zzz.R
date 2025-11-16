@@ -2,8 +2,9 @@ test_that("install_granite checks for processx package", {
   skip_on_cran()
   
   # Mock environment without processx
-  with_mocked_bindings(
+  with_mock(
     requireNamespace = function(package, quietly = TRUE) FALSE,
+    .env = "base", # Specify the environment of the function to mock
     {
       expect_error(
         install_granite(),
@@ -17,9 +18,9 @@ test_that("install_granite handles UV not available", {
   skip_on_cran()
   skip_if_not_installed("processx")
   
-  # Mock UV not being available
-  with_mocked_bindings(
+  with_mock(
     requireNamespace = function(package, quietly = TRUE) TRUE,
+    .env = "base", # Specify the environment of the function to mock
     {
       mockery::stub(install_granite, "processx::run", function(...) stop("command not found"))
       
@@ -36,9 +37,9 @@ test_that("install_granite creates venv path", {
   temp_dir <- tempdir()
   venv_path <- file.path(temp_dir, "test_venv")
   
-  # Mock UV being available and successful runs
-  with_mocked_bindings(
+  with_mock(
     requireNamespace = function(package, quietly = TRUE) TRUE,
+    .env = "base", # Specify the environment of the function to mock
     {
       mockery::stub(install_granite, "processx::run", function(cmd, args, ...) {
         if (cmd == "uv" && args[1] == "--version") {
@@ -64,8 +65,9 @@ test_that("install_granite uses existing venv", {
   temp_dir <- tempdir()
   
   
-  with_mocked_bindings(
+  with_mock(
     requireNamespace = function(package, quietly = TRUE) TRUE,
+    .env = "base", # Specify the environment of the function to mock
     {
       mockery::stub(install_granite, "processx::run", function(cmd, args, ...) {
         list(status = 0, stdout = "uv 0.1.0")
@@ -87,8 +89,9 @@ test_that("install_granite uses requirements.txt when available", {
   
   temp_dir <- tempdir()
   
-  with_mocked_bindings(
+  with_mock(
     requireNamespace = function(package, quietly = TRUE) TRUE,
+    .env = "base", # Specify the environment of the function to mock
     {
       mockery::stub(install_granite, "processx::run", function(cmd, args, ...) {
         list(status = 0, stdout = "uv 0.1.0")
@@ -104,11 +107,11 @@ test_that("install_granite uses requirements.txt when available", {
   )
 })
 
-test_that(".onLoad initializes Python modules", {
+test_that(".onAttach initializes Python modules", {
   skip_on_cran()
   
-  # Test that .onLoad doesn't error
+  # Test that .onAttach doesn't error
   expect_no_error({
-    .onLoad(NULL, "graniteR")
+    .onAttach(NULL, "graniteR")
   })
 })

@@ -68,7 +68,7 @@ library(graniteR)
 library(tibble)
 
 # This should work without errors
-tibble(text = "Test") |> granite_embed(text_col = text)
+tibble(text = "Test") |> embed(text_col = text)
 ```
 
 ## Generating Embeddings
@@ -90,12 +90,12 @@ data <- tibble(
 )
 
 embeddings <- data |>
-  granite_embed(text_col = text)
+  embed(text_col = text)
 
 dim(embeddings)
 ```
 
-The `granite_embed()` function adds embedding columns (emb_1, emb_2, ..., emb_768) to your data.
+The `embed()` function adds embedding columns (emb_1, emb_2, ..., emb_768) to your data.
 
 ## Text Classification
 
@@ -114,8 +114,8 @@ train_data <- tibble(
   sentiment = c(1, 0, 1, 0, 1, 0)
 )
 
-classifier <- granite_classifier(num_labels = 2) |>
-  granite_train(
+classifier <- classifier(num_labels = 2) |>
+  train(
     train_data,
     text_col = text,
     label_col = sentiment,
@@ -137,11 +137,11 @@ new_data <- tibble(
 )
 
 # Get class predictions
-predictions <- granite_predict(classifier, new_data, text_col = text, type = "class")
+predictions <- predict(classifier, new_data, text_col = text, type = "class")
 print(predictions)
 
 # Get probability scores
-probabilities <- granite_predict(classifier, new_data, text_col = text, type = "prob")
+probabilities <- predict(classifier, new_data, text_col = text, type = "prob")
 print(probabilities)
 ```
 
@@ -153,7 +153,7 @@ If you have a CUDA-capable GPU:
 
 ```{r}
 model <- granite_model(task = "embedding", device = "cuda")
-classifier <- granite_classifier(num_labels = 3, device = "cuda")
+classifier <- classifier(num_labels = 3, device = "cuda")
 ```
 
 ### Custom Models
@@ -167,7 +167,7 @@ custom_model <- granite_model(
 )
 
 embeddings <- data |>
-  granite_embed(text_col = text, model = custom_model)
+  embed(text_col = text, model = custom_model)
 ```
 
 ### Working with Factors
@@ -180,8 +180,8 @@ train_data <- tibble(
   category = factor(c("pos", "neg", "neu"))
 )
 
-classifier <- granite_classifier(num_labels = 3) |>
-  granite_train(train_data, text_col = text, label_col = category, epochs = 3)
+classifier <- classifier(num_labels = 3) |>
+  train(train_data, text_col = text, label_col = category, epochs = 3)
 ```
 
 ## Model Information
