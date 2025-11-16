@@ -27,9 +27,9 @@ devtools::install_github("skandermulder/graniteR")
 
 graniteR requires Python dependencies (transformers, torch, datasets, numpy) to function. Choose one of the two methods below:
 
-#### Option A: Fast Setup with UV (Recommended)
+#### Recommended: Setup with UV
 
-UV is a modern Python package manager that is 10-100x faster than pip. This is the recommended approach for faster installation.
+UV is a modern Python package manager that is 10-100x faster than pip.
 
 **1. Run the automated setup script:**
 
@@ -57,20 +57,11 @@ Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
 library(graniteR)
 ```
 
-#### Option B: Traditional Installation
-
-If you prefer using pip or conda:
+#### Alternative: Install from R
 
 ```r
 library(graniteR)
-install_granite()  # Uses pip (slower)
-```
-
-Or use the UV function from within R:
-
-```r
-library(graniteR)
-install_granite_uv()  # Uses UV (faster)
+install_granite()  # Uses UV
 ```
 
 ### Verifying Installation
@@ -85,12 +76,12 @@ tibble(text = "Hello world") |>
 
 ### Why UV?
 
-Traditional pip installation of PyTorch and transformers can take **10-20 minutes** due to large package sizes and dependency resolution. UV solves this by:
+Traditional pip installation of PyTorch and transformers can take **10-20 minutes** due to large package sizes and dependency resolution. UV is 10-100x faster through:
 
 - **Parallel downloads**: Downloads packages concurrently
-- **Fast dependency resolution**: Uses Rust-based resolver
+- **Fast dependency resolution**: Rust-based resolver
 - **Efficient caching**: Reuses downloaded packages
-- **Result**: Same installation in **1-2 minutes**
+- **Result**: Installation completes in **1-2 minutes** instead of 10-20
 
 ## Usage
 

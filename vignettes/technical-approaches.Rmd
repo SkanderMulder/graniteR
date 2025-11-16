@@ -21,7 +21,7 @@ The graniteR package provides two distinct approaches for text classification us
 
 ## Setup Requirements
 
-This vignette assumes you have graniteR installed with Python dependencies. **We recommend UV for fast setup:**
+This vignette assumes you have graniteR installed with Python dependencies using UV:
 
 ```bash
 # Run from the graniteR package directory
@@ -35,7 +35,7 @@ Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
 library(graniteR)
 ```
 
-Traditional pip installation can take 10-20 minutes for PyTorch and transformers, while UV completes the same installation in 1-2 minutes. See the "Getting Started" vignette for complete installation instructions.
+UV provides fast installation (1-2 minutes vs 10-20 minutes with pip). See the "Getting Started" vignette for complete installation instructions.
 
 ## Approach 1: Fixed Embeddings with Separate Classifier
 

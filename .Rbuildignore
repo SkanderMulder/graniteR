@@ -6,7 +6,11 @@
 ^data-raw$
 ^DEVELOPMENT\.md$
 ^CONTRIBUTING\.md$
+^SETUP\.md$
 ^examples$
 ^\.Rprofile$
 ^NEWS\.md$
 ^logo.*\.png$
+^\.venv$
+^pyproject\.toml$
+^setup_python\.sh$

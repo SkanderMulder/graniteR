@@ -30,9 +30,9 @@ devtools::install_github("skandermulder/graniteR")
 
 ### Python Dependencies Setup
 
-graniteR requires Python dependencies to function. The traditional `pip` installation can be slow (10-20 minutes for PyTorch and transformers). We recommend using **UV**, which is 10-100x faster.
+graniteR requires Python dependencies to function. The package uses **UV** for fast installation (10-100x faster than pip).
 
-#### Recommended: Fast Setup with UV
+#### Recommended: Setup Script
 
 From your terminal, run the automated setup script:
 
@@ -52,20 +52,11 @@ Then configure R to use this virtual environment by adding to your `.Rprofile` o
 Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
 ```
 
-#### Alternative: Traditional Installation
-
-If you prefer the standard approach (slower):
+#### Alternative: Install from R
 
 ```{r}
 library(graniteR)
-install_granite()  # Uses pip - may take 10-20 minutes
-```
-
-Or use UV from within R:
-
-```{r}
-library(graniteR)
-install_granite_uv()  # Uses UV - much faster
+install_granite()  # Uses UV
 ```
 
 ### Verifying Setup

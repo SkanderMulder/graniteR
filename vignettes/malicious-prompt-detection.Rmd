@@ -28,7 +28,7 @@ The dataset includes 467,000 labeled examples from various sources, making it su
 
 ## Prerequisites
 
-Before proceeding, ensure you have installed graniteR and its Python dependencies. **We strongly recommend using UV for fast dependency installation** (1-2 minutes instead of 10-20 minutes with pip):
+Before proceeding, ensure you have installed graniteR and its Python dependencies using UV:
 
 ```bash
 # From the graniteR package directory
@@ -38,7 +38,7 @@ Before proceeding, ensure you have installed graniteR and its Python dependencie
 Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
 ```
 
-See the "Getting Started" vignette for detailed installation instructions.
+UV provides fast dependency installation (1-2 minutes). See the "Getting Started" vignette for detailed installation instructions.
 
 For this classification task, GPU acceleration is recommended but not required. If you have a CUDA-capable GPU, the training will be significantly faster.
 

@@ -10,36 +10,26 @@ torch <- NULL
   torch <<- reticulate::import("torch", delay_load = TRUE)
 }
 
-#' Install Python dependencies for graniteR
-#'
-#' @param method Installation method (virtualenv, conda, or auto)
-#' @param conda Path to conda executable (if using conda)
-#'
-#' @details
-#' For faster installation, consider using UV via the setup script:
-#' Run \code{./setup_python.sh} in the package root, then set
-#' \code{Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")}
-#'
-#' @export
-install_granite <- function(method = "auto", conda = "auto") {
-  reticulate::py_install(
-    packages = c("transformers", "torch", "datasets", "numpy"),
-    method = method,
-    conda = conda
-  )
-}
-
-#' Install Python dependencies using UV (faster)
+#' Install Python dependencies for graniteR using UV
 #'
 #' @param venv_path Path to virtual environment (default: .venv)
 #'
 #' @details
-#' This function uses UV for faster Python dependency installation.
-#' UV is significantly faster than pip. If UV is not installed, this
-#' function will provide instructions to install it.
+#' This function uses UV for fast Python dependency installation.
+#' UV is 10-100x faster than pip. If UV is not installed, this
+#' function will provide instructions to install it automatically.
+#'
+#' Alternatively, run the setup script from the package directory:
+#' \code{./setup_python.sh}
 #'
 #' @export
-install_granite_uv <- function(venv_path = ".venv") {
+#' @examples
+#' \dontrun{
+#' install_granite()
+#' # Then set the Python path
+#' Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+#' }
+install_granite <- function(venv_path = ".venv") {
   if (!requireNamespace("processx", quietly = TRUE)) {
     stop("Package 'processx' is required. Install it with: install.packages('processx')")
   }
@@ -56,6 +46,7 @@ install_granite_uv <- function(venv_path = ".venv") {
     message("UV not found. Install it with:")
     message("  curl -LsSf https://astral.sh/uv/install.sh | sh")
     message("\nOr run the setup script: ./setup_python.sh")
+    message("\nAfter installing UV, restart R and run install_granite() again.")
     return(invisible(FALSE))
   }
 
