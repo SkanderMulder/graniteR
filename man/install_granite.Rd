@@ -17,6 +17,9 @@ This function uses UV for fast Python dependency installation.
 UV is 10-100x faster than pip. If UV is not installed, this
 function will provide instructions to install it automatically.
 
+The Python path is automatically configured for the current R session.
+To make it permanent, add the suggested line to your .Rprofile.
+
 Alternatively, run the setup script from the package directory:
 \code{./setup_python.sh}
 }
@@ -24,8 +27,8 @@ Alternatively, run the setup script from the package directory:
 \dontshow{if (requireNamespace("processx")) withAutoprint(\{ # examplesIf}
 \dontrun{
 install_granite()
-# Then set the Python path
-Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+# Python path is configured automatically
+# To make permanent, add to .Rprofile as shown in output
 }
 \dontshow{\}) # examplesIf}
 }

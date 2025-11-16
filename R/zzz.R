@@ -3,19 +3,23 @@ transformers <- NULL
 torch <- NULL
 
 .onAttach <- function(libname, pkgname) {
-  # Try to load Python dependencies with informative messages
-  tryCatch({
-    reticulate::py_require("transformers")
-    reticulate::py_require("torch")
-
-    transformers <<- reticulate::import("transformers", delay_load = TRUE)
-    torch <<- reticulate::import("torch", delay_load = TRUE)
-  }, error = function(e) {
+  # Try to load Python dependencies
+  if (reticulate::py_available(initialize = TRUE)) {
+    tryCatch({
+      transformers <<- reticulate::import("transformers", delay_load = TRUE)
+      torch <<- reticulate::import("torch", delay_load = TRUE)
+    }, error = function(e) {
+      packageStartupMessage(
+        "Python dependencies not found. ",
+        "Run install_granite() or install_granite_uv() to set up."
+      )
+    })
+  } else {
     packageStartupMessage(
-      "Python dependencies not found. ",
+      "Python not configured. ",
       "Run install_granite() or install_granite_uv() to set up."
     )
-  })
+  }
 }
 
 #' Install Python dependencies for graniteR using UV
@@ -27,6 +31,9 @@ torch <- NULL
 #' UV is 10-100x faster than pip. If UV is not installed, this
 #' function will provide instructions to install it automatically.
 #'
+#' The Python path is automatically configured for the current R session.
+#' To make it permanent, add the suggested line to your .Rprofile.
+#'
 #' Alternatively, run the setup script from the package directory:
 #' \code{./setup_python.sh}
 #'
@@ -35,8 +42,8 @@ torch <- NULL
 #' @examplesIf requireNamespace("processx")
 #' \dontrun{
 #' install_granite()
-#' # Then set the Python path
-#' Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+#' # Python path is configured automatically
+#' # To make permanent, add to .Rprofile as shown in output
 #' }
 install_granite <- function(venv_path = ".venv") {
   if (!requireNamespace("processx", quietly = TRUE)) {
@@ -94,8 +101,13 @@ install_granite <- function(venv_path = ".venv") {
   cli::cli_progress_done()
 
   python_path <- file.path(venv_full_path, "bin", "python")
+
+  # Automatically configure Python path for current session
+  Sys.setenv(RETICULATE_PYTHON = python_path)
+
   cli::cli_alert_success("Setup complete!")
-  cli::cli_alert_info("Add this to your .Rprofile or script:")
+  cli::cli_alert_success("Python path configured for this session")
+  cli::cli_alert_info("To make permanent, add to your .Rprofile:")
   cli::cli_code('Sys.setenv(RETICULATE_PYTHON = "{python_path}")')
 
   invisible(TRUE)
