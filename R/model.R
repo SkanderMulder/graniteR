@@ -38,6 +38,19 @@ granite_model <- function(
   }
 
   # Suppress transformers warnings during model loading
+  old_log_level <- tryCatch({
+    py_warnings <- reticulate::import("warnings", convert = FALSE)
+    transformers_logging <- reticulate::import("transformers.utils.logging", convert = FALSE)
+
+    old_level <- transformers_logging$get_verbosity()
+    transformers_logging$set_verbosity_error()
+
+    # Also suppress Python warnings about model weights
+    py_warnings$filterwarnings("ignore", message = ".*were not initialized.*")
+
+    old_level
+  }, error = function(e) NULL)
+
   model <- suppressWarnings({
     switch(
       task,
@@ -59,6 +72,17 @@ granite_model <- function(
       }
     )
   })
+
+  # Restore logging level
+  if (!is.null(old_log_level)) {
+    tryCatch({
+      transformers_logging <- reticulate::import("transformers.utils.logging", convert = FALSE)
+      transformers_logging$set_verbosity(old_log_level)
+
+      py_warnings <- reticulate::import("warnings", convert = FALSE)
+      py_warnings$filterwarnings("default", message = ".*were not initialized.*")
+    }, error = function(e) NULL)
+  }
 
   if (device == "cuda") {
     model$to(torch$device("cuda"))
