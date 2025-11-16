@@ -1,3 +1,5 @@
+library(testthat)
+
 test_that("install_pyenv checks for processx package", {
   skip_on_cran()
 
@@ -96,6 +98,9 @@ test_that("install_pyenv uses requirements.txt when available", {
 
 test_that(".onLoad initializes Python modules when available", {
   skip_on_cran()
+  skip_if_not_installed("mockery")
+  
+  local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
   
   # Mock reticulate functions
   with_mocked_bindings(
@@ -115,10 +120,6 @@ test_that(".onLoad initializes Python modules when available", {
     },
     .package = "reticulate",
     {
-      # Ensure global variables are NULL before calling .onLoad
-      assign("transformers", NULL, envir = asNamespace("graniteR"))
-      assign("torch", NULL, envir = asNamespace("graniteR"))
-      
       .onLoad(NULL, "graniteR")
       
       expect_equal(get("transformers", envir = asNamespace("graniteR")), "mock_transformers")
@@ -129,14 +130,14 @@ test_that(".onLoad initializes Python modules when available", {
 
 test_that(".onLoad handles Python not available", {
   skip_on_cran()
+  skip_if_not_installed("mockery")
+  
+  local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
   
   with_mocked_bindings(
     py_available = function(...) FALSE,
     .package = "reticulate",
     {
-      assign("transformers", NULL, envir = asNamespace("graniteR"))
-      assign("torch", NULL, envir = asNamespace("graniteR"))
-      
       .onLoad(NULL, "graniteR")
       
       expect_null(get("transformers", envir = asNamespace("graniteR")))
@@ -147,6 +148,9 @@ test_that(".onLoad handles Python not available", {
 
 test_that(".onLoad handles import errors silently", {
   skip_on_cran()
+  skip_if_not_installed("mockery")
+  
+  local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
   
   with_mocked_bindings(
     py_available = function(...) TRUE,
@@ -159,9 +163,6 @@ test_that(".onLoad handles import errors silently", {
     },
     .package = "reticulate",
     {
-      assign("transformers", NULL, envir = asNamespace("graniteR"))
-      assign("torch", NULL, envir = asNamespace("graniteR"))
-      
       # Should not throw an error
       expect_no_error(.onLoad(NULL, "graniteR"))
       
@@ -173,6 +174,9 @@ test_that(".onLoad handles import errors silently", {
 
 test_that(".onAttach shows message when Python dependencies are missing", {
   skip_on_cran()
+  skip_if_not_installed("mockery")
+  
+  local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
   
   with_mocked_bindings(
     packageStartupMessage = function(...) {
@@ -180,10 +184,6 @@ test_that(".onAttach shows message when Python dependencies are missing", {
     },
     .package = "base",
     {
-      # Simulate missing dependencies
-      assign("transformers", NULL, envir = asNamespace("graniteR"))
-      assign("torch", NULL, envir = asNamespace("graniteR"))
-      
       captured_message <- ""
       .onAttach(NULL, "graniteR")
       
@@ -194,6 +194,9 @@ test_that(".onAttach shows message when Python dependencies are missing", {
 
 test_that(".onAttach does not show message when Python dependencies are present", {
   skip_on_cran()
+  skip_if_not_installed("mockery")
+  
+  local_bindings(transformers = "mock_transformers", torch = "mock_torch", .env = asNamespace("graniteR"))
   
   with_mocked_bindings(
     packageStartupMessage = function(...) {
@@ -201,10 +204,6 @@ test_that(".onAttach does not show message when Python dependencies are present"
     },
     .package = "base",
     {
-      # Simulate present dependencies
-      assign("transformers", "mock_transformers", envir = asNamespace("graniteR"))
-      assign("torch", "mock_torch", envir = asNamespace("graniteR"))
-      
       captured_message <- ""
       .onAttach(NULL, "graniteR")
       
