@@ -56,7 +56,7 @@ classifier <- function(
       num_labels = num_labels,
       is_trained = FALSE
     ),
-    class = c("granite_classifier", "granite_model")
+    class = c("classifier", "granite_classifier", "granite_model")
   )
 }
 
@@ -237,7 +237,7 @@ evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, dev
 #' @examplesIf requireNamespace("transformers")
 #' # Assuming 'clf' is a trained model and 'new_data' is a tibble
 #' # predictions <- predict(clf, new_data, text_col = text)
-predict.classifier <- function(
+predict.granite_classifier <- function(
   classifier,
   data,
   text_col,
@@ -297,3 +297,7 @@ predict.classifier <- function(
     dplyr::bind_cols(data, prob_df)
   }
 }
+
+#' @rdname predict.granite_classifier
+#' @export
+predict.classifier <- predict.granite_classifier

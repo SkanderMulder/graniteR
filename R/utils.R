@@ -35,39 +35,44 @@ to_device <- function(encodings, labels = NULL, device = "cpu") {
 #' @examplesIf requireNamespace("reticulate")
 #' granite_check_system()
 granite_check_system <- function() {
-  cli::cli_h1("graniteR System Check")
+  cat("graniteR System Check\n")
+  cat("====================\n\n")
 
   py_available <- reticulate::py_available(initialize = TRUE)
   transformers_ok <- py_available && reticulate::py_module_available("transformers")
   torch_ok <- py_available && reticulate::py_module_available("torch")
 
   # Python configuration
-  cli::cli_h2("Python Configuration")
+  cat("Python Configuration\n")
+  cat("--------------------\n")
   if (py_available) {
     py_config <- reticulate::py_config()
     py_version <- if (is.list(py_config$version)) py_config$version[[1]] else py_config$version
-    cli::cli_alert_success("Python: {.path {py_config$python}}")
-    cli::cli_alert_success("Version: {as.character(py_version)}")
+    cat("Python:", py_config$python, "\n")
+    cat("Version:", as.character(py_version), "\n")
   } else {
-    cli::cli_alert_danger("Python not available")
-    cli::cli_alert_info("Run {.run install_pyenv()}")
+    cat("Python not available\n")
+    cat("Run install_pyenv()\n")
   }
+  cat("\n")
 
   # Python packages
-  cli::cli_h2("Python Packages")
+  cat("Python Packages\n")
+  cat("---------------\n")
   if (transformers_ok) {
-    cli::cli_alert_success("transformers")
+    cat("transformers: OK\n")
   } else {
-    cli::cli_alert_danger("transformers")
+    cat("transformers: NOT FOUND\n")
   }
   if (torch_ok) {
-    cli::cli_alert_success("torch")
+    cat("torch: OK\n")
   } else {
-    cli::cli_alert_danger("torch")
+    cat("torch: NOT FOUND\n")
   }
   if (py_available && (!transformers_ok || !torch_ok)) {
-    cli::cli_alert_info("Run {.run install_pyenv()}")
+    cat("Run install_pyenv()\n")
   }
+  cat("\n")
 
   # CUDA availability
   cuda_available <- torch_ok && suppressWarnings(tryCatch(
@@ -75,29 +80,30 @@ granite_check_system <- function() {
     error = function(e) FALSE
   ))
 
-  cli::cli_h2("CUDA Support")
+  cat("CUDA Support\n")
+  cat("------------\n")
   if (torch_ok && cuda_available) {
     torch <- reticulate::import("torch")
     cuda_version <- tryCatch(torch$version$cuda, error = function(e) "unknown")
     device_count <- tryCatch(torch$cuda$device_count(), error = function(e) 0L)
-    cli::cli_alert_success("CUDA available (version: {cuda_version})")
-    cli::cli_alert_success("CUDA devices: {device_count}")
+    cat("CUDA available (version:", cuda_version, ")\n")
+    cat("CUDA devices:", device_count, "\n")
   } else if (torch_ok) {
-    cli::cli_alert_warning("CUDA not available (CPU only)")
-    cli::cli_alert_info("This is normal if you don't have an NVIDIA GPU")
+    cat("CUDA not available (CPU only)\n")
+    cat("This is normal if you don't have an NVIDIA GPU\n")
   } else {
-    cli::cli_alert_warning("Cannot check (torch not available)")
+    cat("Cannot check (torch not available)\n")
   }
+  cat("\n")
 
   # Recommendations
-  cli::cli_h2("Recommendations")
+  cat("Recommendations\n")
+  cat("---------------\n")
   if (!py_available || !transformers_ok || !torch_ok) {
-    cli::cli_ul(c(
-      "Run {.run install_pyenv()} for fast setup (uses UV)",
-      "Or run {.file ./setup_python.sh} from package directory"
-    ))
+    cat("- Run install_pyenv() for fast setup (uses UV)\n")
+    cat("- Or run ./setup_python.sh from package directory\n")
   } else {
-    cli::cli_alert_success("System ready for graniteR!")
+    cat("System ready for graniteR!\n")
   }
 
   invisible(list(
