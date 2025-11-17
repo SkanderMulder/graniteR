@@ -41,9 +41,9 @@ load("model.rda")
 
 **Why?**: R's `save()` serializes the object structure but Python pointers become NULL.
 
-## The Solution: S3 Methods with saveRDS() and load_classifier()
+## The Solution: save_classifier() and load_classifier()
 
-### Basic Usage (Just use saveRDS!)
+### Basic Usage
 
 ```{r basic-usage}
 library(graniteR)
@@ -52,8 +52,8 @@ library(graniteR)
 data(emotion_sample)
 clf <- auto_classify(emotion_sample, text, label)
 
-# Save it - S3 method handles everything automatically!
-saveRDS(clf, "models/emotion_clf")
+# Save it - creates two files automatically!
+save_classifier(clf, "models/emotion_clf")
 
 # Files created:
 # models/emotion_clf_weights.pt   <- PyTorch weights
@@ -67,11 +67,11 @@ test_data <- emotion_sample |> slice_sample(n = 100)
 predictions <- predict(clf, test_data, text)
 ```
 
-**Key Point**: Just use standard R functions! The S3 methods handle PyTorch weights automatically.
+**Key Point**: The function handles PyTorch weights and R configuration automatically.
 
 ### What Gets Saved
 
-The `saveRDS.granite_classifier()` S3 method saves two files:
+The `save_classifier()` function saves two files:
 
 1. **Weights file** (`*_weights.pt`):
    - PyTorch model state_dict
@@ -104,8 +104,8 @@ clf <- auto_classify(
   max_time_minutes = 30
 )
 
-# Save the trained model - just use saveRDS!
-saveRDS(clf, "my_models/emotion_detector_v1")
+# Save the trained model
+save_classifier(clf, "my_models/emotion_detector_v1")
 ```
 
 Output:

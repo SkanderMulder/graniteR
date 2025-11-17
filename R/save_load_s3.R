@@ -1,51 +1,45 @@
 #' Save granite classifiers with proper PyTorch weight handling
 #'
-#' S3 methods that automatically handle saving and loading of granite classifiers.
-#' When you use \code{saveRDS()} or \code{readRDS()} with classifier objects,
-#' these methods ensure PyTorch weights are properly saved and restored.
+#' Saves granite classifiers by separately storing PyTorch weights and R configuration.
+#' This ensures models can be properly loaded in new R sessions despite reticulate limitations.
 #'
 #' @param object Trained classifier object
 #' @param file File path (without extension)
-#' @param ... Additional arguments
+#' @param ... Additional arguments (unused)
 #'
-#' @return For saveRDS: invisibly returns file path. For readRDS: the loaded classifier.
+#' @return Invisibly returns file path
 #'
 #' @details
-#' **Automatic S3 dispatch**: Just use the standard R functions:
+#' **Usage**:
 #' \preformatted{
-#' # Save - automatically calls saveRDS.granite_classifier()
-#' saveRDS(clf, "models/my_model")
+#' # Save - creates two files
+#' save_classifier(clf, "models/my_model")
+#' # Creates: my_model_weights.pt + my_model_config.rds
 #'
-#' # Load - automatically calls readRDS with proper reconstruction
-#' clf <- readRDS("models/my_model_config.rds")
+#' # Load in new session
+#' clf <- load_classifier("models/my_model")
 #' }
 #'
-#' **What happens under the hood**:
+#' **What gets saved**:
 #' \itemize{
-#'   \item saveRDS creates: my_model_weights.pt + my_model_config.rds
-#'   \item readRDS reconstructs the model and loads weights
-#'   \item Python objects are properly initialized
-#'   \item Model is ready for immediate use
+#'   \item Weights file: PyTorch state_dict with all trained parameters
+#'   \item Config file: Model architecture, labels, device, freeze_backbone
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Train and save
+#' clf <- classifier(6) |> train(data, text, label, epochs = 3)
+#' save_classifier(clf, "models/emotion_v1")
+#'
+#' # Load and use
+#' clf <- load_classifier("models/emotion_v1")
+#' predict(clf, test_data, text)
 #' }
 #'
 #' @name save-load-classifiers
 #' @export
-#' @method saveRDS granite_classifier
-saveRDS.granite_classifier <- function(object, file = "", ...) {
-  save_classifier_impl(object, file)
-}
-
-#' @rdname save-load-classifiers
-#' @export
-#' @method saveRDS moe_classifier
-saveRDS.moe_classifier <- function(object, file = "", ...) {
-  save_classifier_impl(object, file)
-}
-
-#' @rdname save-load-classifiers
-#' @export
-#' @method saveRDS classifier
-saveRDS.classifier <- function(object, file = "", ...) {
+save_classifier <- function(object, file = "", ...) {
   save_classifier_impl(object, file)
 }
 
@@ -89,7 +83,7 @@ save_classifier_impl <- function(classifier, file) {
   cli::cli_alert_success("Saved classifier")
   cli::cli_alert_info("Weights: {basename(weights_file)}")
   cli::cli_alert_info("Config: {basename(config_file)}")
-  cli::cli_alert_info("To load: clf <- readRDS('{config_file}')")
+  cli::cli_alert_info("To load: clf <- load_classifier('{file}')")
 
   invisible(file)
 }
@@ -137,7 +131,7 @@ load_classifier <- function(file, device = NULL) {
   config <- base::readRDS(config_file)
 
   if (is.null(device)) {
-    device <- config$device
+    device <- config$device %||% "cpu"
   }
 
   cli::cli_alert_info("Loading {config$model_type} classifier")

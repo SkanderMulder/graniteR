@@ -2,47 +2,51 @@
 % Please edit documentation in R/save_load_s3.R
 \name{save-load-classifiers}
 \alias{save-load-classifiers}
-\alias{saveRDS.granite_classifier}
-\alias{saveRDS.moe_classifier}
-\alias{saveRDS.classifier}
+\alias{save_classifier}
 \title{Save granite classifiers with proper PyTorch weight handling}
 \usage{
-\method{saveRDS}{granite_classifier}(object, file = "", ...)
-
-\method{saveRDS}{moe_classifier}(object, file = "", ...)
-
-\method{saveRDS}{classifier}(object, file = "", ...)
+save_classifier(object, file = "", ...)
 }
 \arguments{
 \item{object}{Trained classifier object}
 
 \item{file}{File path (without extension)}
 
-\item{...}{Additional arguments}
+\item{...}{Additional arguments (unused)}
 }
 \value{
-For saveRDS: invisibly returns file path. For readRDS: the loaded classifier.
+Invisibly returns file path
 }
 \description{
-S3 methods that automatically handle saving and loading of granite classifiers.
-When you use \code{saveRDS()} or \code{readRDS()} with classifier objects,
-these methods ensure PyTorch weights are properly saved and restored.
+Saves granite classifiers by separately storing PyTorch weights and R configuration.
+This ensures models can be properly loaded in new R sessions despite reticulate limitations.
 }
 \details{
-**Automatic S3 dispatch**: Just use the standard R functions:
+**Usage**:
 \preformatted{
-# Save - automatically calls saveRDS.granite_classifier()
-saveRDS(clf, "models/my_model")
+# Save - creates two files
+save_classifier(clf, "models/my_model")
+# Creates: my_model_weights.pt + my_model_config.rds
 
-# Load - automatically calls readRDS with proper reconstruction
-clf <- readRDS("models/my_model_config.rds")
+# Load in new session
+clf <- load_classifier("models/my_model")
 }
 
-**What happens under the hood**:
+**What gets saved**:
 \itemize{
-  \item saveRDS creates: my_model_weights.pt + my_model_config.rds
-  \item readRDS reconstructs the model and loads weights
-  \item Python objects are properly initialized
-  \item Model is ready for immediate use
+  \item Weights file: PyTorch state_dict with all trained parameters
+  \item Config file: Model architecture, labels, device, freeze_backbone
 }
+}
+\examples{
+\dontrun{
+# Train and save
+clf <- classifier(6) |> train(data, text, label, epochs = 3)
+save_classifier(clf, "models/emotion_v1")
+
+# Load and use
+clf <- load_classifier("models/emotion_v1")
+predict(clf, test_data, text)
+}
+
 }
