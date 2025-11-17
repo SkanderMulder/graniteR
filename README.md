@@ -8,6 +8,8 @@
 
 R interface for text embeddings and classification using transformer encoder models. Designed as a homage to [IBM's Granite Embedding R2](https://arxiv.org/html/2508.21085v1) (149M parameters, ModernBERT with Flash Attention), but compatible with any Hugging Face transformer encoder model.
 
+**Transfer Learning**: Classification uses frozen pretrained models with trainable classification heads only. This provides fast, efficient training while preserving pretrained knowledge.
+
 **Privacy**: All models execute locally. No data transmission to external servers.
 
 > **Note**: While optimized for Granite models, this package works with other encoder models (BERT, RoBERTa, DistilBERT, etc.) by specifying `model_name` in function calls.
@@ -64,6 +66,7 @@ predict(clf, new_data, text_col = text, type = "prob")
 
 ## Features
 
+- **Transfer learning**: Frozen pretrained models with trainable classification heads for efficient training
 - **Local execution**: All inference runs on-device, ensuring data privacy
 - **Multi-class support**: Binary and n-class classification with softmax output
 - **Fast dependency installation**: UV package manager (1-2 min vs 10-20 min with pip)

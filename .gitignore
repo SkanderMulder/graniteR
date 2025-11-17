@@ -25,6 +25,7 @@ vignettes/*.html
 vignettes/*.pdf
 vignettes/*_cache/
 vignettes/*_files/
+vignettes/*.rmarkdown
 
 # pkgdown
 docs/
