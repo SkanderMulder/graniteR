@@ -147,6 +147,14 @@ train <- function(
     total_loss <- 0
     n_batches <- ceiling(length(train_texts) / batch_size)
 
+    if (verbose) {
+      cli::cli_progress_bar(
+        format = "Epoch {epoch}/{epochs} | Batch {cli::pb_current}/{cli::pb_total} | Loss: {round(total_loss / cli::pb_current, 4)}",
+        total = n_batches,
+        clear = FALSE
+      )
+    }
+
     for (i in seq_len(n_batches)) {
       start_idx <- (i - 1) * batch_size + 1
       end_idx <- min(i * batch_size, length(train_texts))
@@ -171,6 +179,14 @@ train <- function(
       outputs$loss$backward()
       optimizer$step()
       total_loss <- total_loss + outputs$loss$item()
+
+      if (verbose) {
+        cli::cli_progress_update()
+      }
+    }
+
+    if (verbose) {
+      cli::cli_progress_done()
     }
 
     if (verbose) {
@@ -261,8 +277,15 @@ predict.granite_classifier <- function(
 
   model$eval()
   predictions_list <- list()
+  n_batches <- ceiling(length(texts) / batch_size)
 
-  for (i in seq_len(ceiling(length(texts) / batch_size))) {
+  cli::cli_progress_bar(
+    format = "Predicting | Batch {cli::pb_current}/{cli::pb_total}",
+    total = n_batches,
+    clear = FALSE
+  )
+
+  for (i in seq_len(n_batches)) {
     start_idx <- (i - 1) * batch_size + 1
     end_idx <- min(i * batch_size, length(texts))
 
@@ -287,7 +310,11 @@ predict.granite_classifier <- function(
         torch$nn$functional$softmax(outputs$logits, dim = -1L)$cpu()$numpy()
       }
     })
+
+    cli::cli_progress_update()
   }
+
+  cli::cli_progress_done()
 
   if (type == "class") {
     dplyr::mutate(data, prediction = unlist(predictions_list))
