@@ -400,7 +400,7 @@ evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, dev
 
 #' Make predictions with a trained classifier
 #'
-#' @param classifier Trained classifier object
+#' @param object Trained classifier object
 #' @param data Data frame containing text to classify
 #' @param text_col Column name containing text (unquoted or string)
 #' @param type Type of prediction ("class" or "prob")
@@ -413,7 +413,7 @@ evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, dev
 #' # Assuming 'clf' is a trained model and 'new_data' is a tibble
 #' # predictions <- predict(clf, new_data, text_col = text)
 predict.granite_classifier <- function(
-  classifier,
+  object,
   data,
   text_col,
   type = c("class", "prob"),
@@ -422,7 +422,7 @@ predict.granite_classifier <- function(
 ) {
   type <- match.arg(type)
 
-  if (!classifier$is_trained) {
+  if (!object$is_trained) {
     warning("Classifier has not been trained yet. Predictions may be random.")
   }
 
@@ -431,8 +431,8 @@ predict.granite_classifier <- function(
 
   texts <- dplyr::pull(data, .data[[text_col_name]])
 
-  model <- classifier$model$model
-  tokenizer <- classifier$tokenizer$tokenizer
+  model <- object$model$model
+  tokenizer <- object$tokenizer$tokenizer
 
   model$eval()
   predictions_list <- list()
@@ -462,7 +462,7 @@ predict.granite_classifier <- function(
       return_tensors = "pt"
     )
 
-    moved <- to_device(encodings, device = classifier$model$device)
+    moved <- to_device(encodings, device = object$model$device)
 
     with(torch$no_grad(), {
       outputs <- model(

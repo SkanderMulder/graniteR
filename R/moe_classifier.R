@@ -423,7 +423,7 @@ evaluate_moe_classifier <- function(model, tokenizer, texts, labels, batch_size,
 
 #' Make predictions with a trained MoE classifier
 #'
-#' @param classifier Trained MoE classifier object
+#' @param object Trained MoE classifier object
 #' @param data Data frame containing text to classify
 #' @param text_col Column name containing text (unquoted or string)
 #' @param type Type of prediction ("class", "prob", or "expert_weights")
@@ -439,7 +439,7 @@ evaluate_moe_classifier <- function(model, tokenizer, texts, labels, batch_size,
 #' @export
 #' @seealso \code{\link{moe_classifier}}, \code{\link{train_moe}}
 predict.moe_classifier <- function(
-  classifier,
+  object,
   data,
   text_col,
   type = c("class", "prob", "expert_weights"),
@@ -448,7 +448,7 @@ predict.moe_classifier <- function(
 ) {
   type <- match.arg(type)
 
-  if (!classifier$is_trained) {
+  if (!object$is_trained) {
     warning("Classifier has not been trained yet. Predictions may be random.")
   }
 
@@ -457,8 +457,8 @@ predict.moe_classifier <- function(
 
   texts <- dplyr::pull(data, .data[[text_col_name]])
 
-  model <- classifier$model
-  tokenizer <- classifier$tokenizer$tokenizer
+  model <- object$model
+  tokenizer <- object$tokenizer$tokenizer
 
   model$eval()
   predictions_list <- list()
@@ -489,7 +489,7 @@ predict.moe_classifier <- function(
       return_tensors = "pt"
     )
 
-    moved <- to_device(encodings, device = classifier$device)
+    moved <- to_device(encodings, device = object$device)
 
     with(torch$no_grad(), {
       result <- model(

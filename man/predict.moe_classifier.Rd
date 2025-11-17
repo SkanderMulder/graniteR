@@ -5,7 +5,7 @@
 \title{Make predictions with a trained MoE classifier}
 \usage{
 \method{predict}{moe_classifier}(
-  classifier,
+  object,
   data,
   text_col,
   type = c("class", "prob", "expert_weights"),
@@ -14,7 +14,7 @@
 )
 }
 \arguments{
-\item{classifier}{Trained MoE classifier object}
+\item{object}{Trained MoE classifier object}
 
 \item{data}{Data frame containing text to classify}
 

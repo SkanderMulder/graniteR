@@ -6,7 +6,7 @@
 \title{Make predictions with a trained classifier}
 \usage{
 \method{predict}{granite_classifier}(
-  classifier,
+  object,
   data,
   text_col,
   type = c("class", "prob"),
@@ -15,7 +15,7 @@
 )
 
 \method{predict}{classifier}(
-  classifier,
+  object,
   data,
   text_col,
   type = c("class", "prob"),
@@ -24,7 +24,7 @@
 )
 }
 \arguments{
-\item{classifier}{Trained classifier object}
+\item{object}{Trained classifier object}
 
 \item{data}{Data frame containing text to classify}
 

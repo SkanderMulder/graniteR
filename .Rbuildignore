@@ -20,3 +20,5 @@
 ^\.claude$
 ^inst/\.venv$
 ^LICENSE\.md$
+^CLAUDE\.md$
+^dev$
