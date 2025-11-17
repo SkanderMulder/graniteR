@@ -197,11 +197,13 @@ train <- function(
       n_batches <- ceiling(length(train_texts) / batch_size)
       epoch_start_time <- Sys.time()
       avg_loss <- 0
+      prev_batch_loss <- NULL
       eta_str <- "calculating..."
+      loss_delta_str <- ""
 
       if (verbose) {
         cli::cli_progress_bar(
-          format = "Epoch {epoch}/{epochs} | Batch {cli::pb_current}/{cli::pb_total} | Loss: {sprintf('%.4f', avg_loss)} | ETA: {eta_str}",
+          format = "Epoch {epoch}/{epochs} | Batch {cli::pb_current}/{cli::pb_total} | Loss: {sprintf('%.4f', avg_loss)}{loss_delta_str} | ETA: {eta_str}",
           total = n_batches,
           clear = FALSE
         )
@@ -237,6 +239,14 @@ train <- function(
 
       if (verbose) {
         avg_loss <- total_loss / i
+
+        if (!is.null(prev_batch_loss) && i > 1) {
+          delta_val <- ((prev_batch_loss - avg_loss) / prev_batch_loss) * 100
+          loss_delta_str <- sprintf(" (%+.1f%%)", delta_val)
+        } else {
+          loss_delta_str <- ""
+        }
+        prev_batch_loss <- avg_loss
 
         recent_batch_times <- tail(batch_times, min(10, length(batch_times)))
         avg_batch_time <- mean(recent_batch_times)
