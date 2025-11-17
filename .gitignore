@@ -84,6 +84,12 @@ credentials.json
 .aider*
 .copilot/
 
+# Development/planning docs
+AUTOGLUON_COMPARISON.md
+AUTOML_IMPLEMENTATION.md
+*_COMPARISON.md
+*_IMPLEMENTATION.md
+
 # Testing
 TEST_RESULTS.md
 test_*.R
