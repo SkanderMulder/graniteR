@@ -3,6 +3,14 @@ transformers <- NULL
 torch <- NULL
 
 .onLoad <- function(libname, pkgname) {
+  # Disable PyTorch JIT compilation to avoid Python.h dependency
+  # This prevents compilation errors when python3-dev is not installed
+  Sys.setenv(
+    PYTORCH_JIT = "0",
+    PYTORCH_JIT_USE_NNC_NOT_NVFUSER = "0",
+    TORCHDYNAMO_DISABLE = "1"
+  )
+
   # Initialize Python modules - use .onLoad instead of .onAttach
   # so the bindings are unlocked when we assign
   if (reticulate::py_available(initialize = TRUE)) {
