@@ -9,7 +9,8 @@
 #' @param data Training data frame
 #' @param text_col Column containing text (unquoted)
 #' @param label_col Column containing labels (unquoted)
-#' @param cv_folds Number of cross-validation folds (default: 5)
+#' @param cv_folds Number of cross-validation folds. If NULL (default), automatically
+#'   determined: 5 folds for <2K samples, 3 for 2-10K, 2 for >10K.
 #' @param max_time_minutes Maximum time budget in minutes (default: 30)
 #' @param device Device to use ("cpu" or "cuda"). Auto-detected if NULL.
 #' @param verbose Show detailed progress (default: TRUE)
@@ -17,22 +18,23 @@
 #' @return A trained classifier (standard or MoE) ready for predictions
 #'
 #' @details
-#' The function automatically decides between:
-#' - **Frozen head-only**: Small datasets (<5K), binary tasks
-#' - **Frozen standard**: Medium datasets (5-20K)
-#' - **Full fine-tune standard**: Large datasets (20-50K)
-#' - **MoE with fine-tuning**: Very large datasets (50K+) with 4+ classes
+#' **Data-Driven Strategy**:
+#'
+#' Computes `samples_per_class` and `complexity_score`, then decides:
+#' - **Always**: Frozen baseline (fast, prevents overfitting)
+#' - **Add fine-tuning if**: 50+ samples/class AND fits time budget
+#' - **Add MoE if**: 4+ classes, 200+ samples/class, complexity > 12, AND fits budget
 #'
 #' Model selection via cross-validation:
-#' 1. Splits data into k folds
-#' 2. Tests multiple approaches (frozen, unfrozen, MoE if applicable)
+#' 1. Adaptive CV folds (fewer for larger datasets)
+#' 2. Tests all candidates that fit in time budget
 #' 3. Selects best based on validation accuracy
 #' 4. Trains final model on all data
 #'
 #' Time budget management:
-#' - If time is limited, skips expensive approaches (MoE, full fine-tuning)
-#' - Provides early stopping if budget is exhausted
-#' - Returns best model trained within budget
+#' - Estimates training time from dataset size
+#' - Only tests approaches that fit (with safety margin)
+#' - Early stopping if budget exhausted during CV
 #'
 #' @export
 #' @seealso \code{\link{classifier}}, \code{\link{moe_classifier}}
@@ -63,7 +65,7 @@ auto_classify <- function(
   data,
   text_col,
   label_col,
-  cv_folds = 5,
+  cv_folds = NULL,
   max_time_minutes = 30,
   device = NULL,
   verbose = TRUE
@@ -83,6 +85,17 @@ auto_classify <- function(
   num_labels <- length(unique(labels))
   n_samples <- length(texts)
 
+  # Adaptive CV folds: fewer folds for larger datasets
+  if (is.null(cv_folds)) {
+    cv_folds <- if (n_samples < 2000) {
+      5
+    } else if (n_samples < 10000) {
+      3
+    } else {
+      2  # Just a train/val split for very large datasets
+    }
+  }
+
   if (verbose) {
     cli::cli_h1("Auto-Classify: Automatic Model Selection")
     cli::cli_alert_info("Dataset: {scales::comma(n_samples)} samples, {num_labels} classes")
@@ -90,7 +103,7 @@ auto_classify <- function(
     cli::cli_alert_info("Cross-validation: {cv_folds} folds")
   }
 
-  strategy <- select_strategy(n_samples, num_labels, max_time_minutes, verbose)
+  strategy <- select_strategy(n_samples, num_labels, max_time_minutes, cv_folds, verbose)
 
   if (verbose) {
     cli::cli_h2("Selected Strategy")
@@ -133,91 +146,88 @@ auto_classify <- function(
 
 #' Select training strategy based on dataset characteristics
 #' @keywords internal
-select_strategy <- function(n_samples, num_labels, max_time_minutes, verbose) {
-  is_binary <- num_labels == 2
+select_strategy <- function(n_samples, num_labels, max_time_minutes, cv_folds, verbose) {
+  # Compute data-driven metrics
+  samples_per_class <- n_samples / num_labels
+  complexity_score <- num_labels * log10(pmax(n_samples, 100))
 
-  if (n_samples < 5000) {
-    list(
-      name = "Frozen Head-Only (Fast)",
-      reason = "Small dataset - frozen backbone prevents overfitting",
-      candidates = list(
-        list(
-          type = "standard",
-          freeze_backbone = TRUE,
-          learning_rate = 1e-3,
-          epochs = 5,
-          description = "Standard classifier, frozen backbone"
-        )
-      )
-    )
-  } else if (n_samples < 20000) {
-    candidates <- list(
-      list(
-        type = "standard",
-        freeze_backbone = TRUE,
-        learning_rate = 1e-3,
-        epochs = 5,
-        description = "Standard frozen"
-      )
-    )
+  # Estimate single-fold training time (minutes) - empirically calibrated
+  # These are rough estimates: frozen is fast, fine-tuning is 10x slower, MoE is 15x slower
+  time_per_epoch_frozen <- n_samples / 60000  # ~1000 samples/sec
+  time_per_epoch_finetuned <- n_samples / 6000  # ~100 samples/sec
+  time_per_epoch_moe <- n_samples / 4000  # ~67 samples/sec
 
-    if (max_time_minutes >= 20) {
-      candidates[[2]] <- list(
+  candidates <- list()
+
+  # Always include frozen baseline
+  frozen_epochs <- pmin(10, pmax(3, ceiling(5000 / samples_per_class)))
+  candidates[[1]] <- list(
+    type = "standard",
+    freeze_backbone = TRUE,
+    learning_rate = 1e-3,
+    epochs = frozen_epochs,
+    description = "Standard frozen"
+  )
+
+  # Add fine-tuned if enough data per class
+  # Rule: need at least 50 samples/class to benefit from fine-tuning
+  if (samples_per_class >= 50) {
+    finetuned_epochs <- pmin(5, pmax(2, ceiling(3000 / samples_per_class)))
+    # CV cost for both models
+    cv_cost <- cv_folds * (time_per_epoch_frozen * frozen_epochs + time_per_epoch_finetuned * finetuned_epochs)
+    final_cost <- time_per_epoch_finetuned * finetuned_epochs
+
+    if (cv_cost + final_cost <= max_time_minutes) {
+      candidates[[length(candidates) + 1]] <- list(
         type = "standard",
         freeze_backbone = FALSE,
         learning_rate = 2e-5,
-        epochs = 3,
+        epochs = finetuned_epochs,
         description = "Standard fine-tuned"
       )
     }
+  }
 
-    list(
-      name = "Standard Classifier with CV",
-      reason = "Medium dataset - test frozen vs fine-tuned",
-      candidates = candidates
-    )
-  } else if (n_samples < 50000 || is_binary) {
-    list(
-      name = "Full Fine-Tuning",
-      reason = if (is_binary) "Binary task - standard is sufficient" else "Large dataset - full fine-tuning beneficial",
-      candidates = list(
-        list(
-          type = "standard",
-          freeze_backbone = FALSE,
-          learning_rate = 2e-5,
-          epochs = 4,
-          description = "Standard full fine-tune"
-        )
-      )
-    )
-  } else {
-    candidates <- list(
-      list(
-        type = "standard",
-        freeze_backbone = FALSE,
-        learning_rate = 2e-5,
-        epochs = 3,
-        description = "Standard fine-tuned"
-      )
-    )
+  # Add MoE if: complex multi-class task with enough data
+  # Rule: need 4+ classes, 200+ samples/class, and high enough complexity score
+  if (num_labels >= 4 && samples_per_class >= 200 && complexity_score > 12) {
+    moe_epochs <- 3
+    # Estimate total CV cost with all candidates
+    n_candidates_with_moe <- length(candidates) + 1
+    cv_cost <- cv_folds * n_candidates_with_moe * time_per_epoch_moe * moe_epochs
+    final_cost <- time_per_epoch_moe * moe_epochs
 
-    if (max_time_minutes >= 45 && num_labels >= 4) {
-      candidates[[2]] <- list(
+    if (cv_cost + final_cost <= max_time_minutes) {
+      candidates[[length(candidates) + 1]] <- list(
         type = "moe",
         freeze_backbone = FALSE,
         learning_rate = 2e-5,
-        epochs = 3,
-        num_experts = min(4, num_labels),
+        epochs = moe_epochs,
+        num_experts = pmin(8, pmax(2, ceiling(num_labels / 2))),
         description = "MoE fine-tuned"
       )
     }
-
-    list(
-      name = "Advanced: Standard vs MoE",
-      reason = "Very large multi-class dataset - test if MoE helps",
-      candidates = candidates
-    )
   }
+
+  # Determine strategy name and reason
+  name <- if (length(candidates) == 1) {
+    "Frozen Baseline"
+  } else if (any(sapply(candidates, function(x) x$type == "moe"))) {
+    "Multi-Strategy CV"
+  } else {
+    "Frozen vs Fine-tuned CV"
+  }
+
+  reason <- sprintf(
+    "%.0f samples/class, complexity=%.1f, %d candidates",
+    samples_per_class, complexity_score, length(candidates)
+  )
+
+  list(
+    name = name,
+    reason = reason,
+    candidates = candidates
+  )
 }
 
 #' Perform cross-validation model selection

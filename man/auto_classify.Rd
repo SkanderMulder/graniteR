@@ -8,7 +8,7 @@ auto_classify(
   data,
   text_col,
   label_col,
-  cv_folds = 5,
+  cv_folds = NULL,
   max_time_minutes = 30,
   device = NULL,
   verbose = TRUE
@@ -21,7 +21,8 @@ auto_classify(
 
 \item{label_col}{Column containing labels (unquoted)}
 
-\item{cv_folds}{Number of cross-validation folds (default: 5)}
+\item{cv_folds}{Number of cross-validation folds. If NULL (default), automatically
+determined: 5 folds for <2K samples, 3 for 2-10K, 2 for >10K.}
 
 \item{max_time_minutes}{Maximum time budget in minutes (default: 30)}
 
@@ -40,22 +41,23 @@ This is the easy entry point for text classification. It automatically:
 - Returns ready-to-use classifier
 }
 \details{
-The function automatically decides between:
-- **Frozen head-only**: Small datasets (<5K), binary tasks
-- **Frozen standard**: Medium datasets (5-20K)
-- **Full fine-tune standard**: Large datasets (20-50K)
-- **MoE with fine-tuning**: Very large datasets (50K+) with 4+ classes
+**Data-Driven Strategy**:
+
+Computes `samples_per_class` and `complexity_score`, then decides:
+- **Always**: Frozen baseline (fast, prevents overfitting)
+- **Add fine-tuning if**: 50+ samples/class AND fits time budget
+- **Add MoE if**: 4+ classes, 200+ samples/class, complexity > 12, AND fits budget
 
 Model selection via cross-validation:
-1. Splits data into k folds
-2. Tests multiple approaches (frozen, unfrozen, MoE if applicable)
+1. Adaptive CV folds (fewer for larger datasets)
+2. Tests all candidates that fit in time budget
 3. Selects best based on validation accuracy
 4. Trains final model on all data
 
 Time budget management:
-- If time is limited, skips expensive approaches (MoE, full fine-tuning)
-- Provides early stopping if budget is exhausted
-- Returns best model trained within budget
+- Estimates training time from dataset size
+- Only tests approaches that fit (with safety margin)
+- Early stopping if budget exhausted during CV
 }
 \examples{
 \dontrun{

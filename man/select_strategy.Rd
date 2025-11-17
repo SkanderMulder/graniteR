@@ -4,7 +4,7 @@
 \alias{select_strategy}
 \title{Select training strategy based on dataset characteristics}
 \usage{
-select_strategy(n_samples, num_labels, max_time_minutes, verbose)
+select_strategy(n_samples, num_labels, max_time_minutes, cv_folds, verbose)
 }
 \description{
 Select training strategy based on dataset characteristics
