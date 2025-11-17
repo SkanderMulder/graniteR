@@ -69,8 +69,9 @@ classifier <- function(
   tokenizer <- granite_tokenizer(model_name)
 
   # Verify parameter freezing
-  trainable_params <- sum(sapply(model$model$parameters(), function(p) p$requires_grad))
-  total_params <- length(model$model$parameters())
+  all_params <- reticulate::iterate(model$model$parameters())
+  trainable_params <- sum(sapply(all_params, function(p) as.logical(p$requires_grad)))
+  total_params <- length(reticulate::iterate(model$model$parameters()))
 
   cli::cli_alert_info(
     "Created classifier with {trainable_params} trainable parameters (head only) out of {total_params} total"

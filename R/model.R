@@ -77,13 +77,15 @@ granite_model <- function(
   # Only train the classification head
   if (task %in% c("classification", "regression")) {
     # Freeze all base model parameters
-    for (param in model$base_model$parameters()) {
+    base_params <- reticulate::iterate(model$base_model$parameters())
+    for (param in base_params) {
       param$requires_grad <- FALSE
     }
 
     # Ensure classifier head is trainable
     if (!is.null(model$classifier)) {
-      for (param in model$classifier$parameters()) {
+      classifier_params <- reticulate::iterate(model$classifier$parameters())
+      for (param in classifier_params) {
         param$requires_grad <- TRUE
       }
     }
