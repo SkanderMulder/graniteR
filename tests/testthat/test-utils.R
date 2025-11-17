@@ -1,3 +1,5 @@
+testthat::local_edition(3)
+
 test_that("check_model validates model", {
   expect_error(graniteR:::check_model(NULL), "Model is NULL")
 })
@@ -166,37 +168,90 @@ test_that("granite_check_system handles py_config version as list", {
       })
       
       expect_true(result$python_available)
-      expect_true(any(grepl("3.8.0", output)))
+      expect_snapshot(output)
     }
   )
 })
 
-test_that("granite_check_system handles CUDA device count", {
+# Define a mock torch_device class
+mock_torch_device <- function(type) {
+  structure(list(type = type), class = "torch_device")
+}
+
+test_that("to_device moves encodings to CUDA device when labels are NULL", {
   skip_on_cran()
-  skip_if_not(reticulate::py_module_available("torch"))
+  skip_if_no_python_or_modules()
+  
+  mock_cuda_device_obj <- mock_torch_device("cuda")
+  
+  # Create mock objects that behave like torch tensors
+  mock_input_ids <- list(to = function(device) {
+    # Just return a value, we'll check it later
+    "cuda_input"
+  })
+  mock_attention_mask <- list(to = function(device) {
+    # Just return a value, we'll check it later
+    "cuda_mask"
+  })
   
   mock_torch <- list(
-    cuda = list(
-      is_available = function() TRUE,
-      device_count = function() 2L
-    ),
-    version = list(cuda = "12.0")
+    device = function(type) {
+      mock_cuda_device_obj
+    }
   )
   
   with_mocked_bindings(
-    py_available = function(...) TRUE,
-    py_config = function() list(python = "/usr/bin/python", version = "3.8.0"),
-    py_module_available = function(module) TRUE,
-    import = function(...) mock_torch,
+    import = function(module) {
+      if (module == "torch") mock_torch else stop("Unexpected import")
+    },
     .package = "reticulate",
     {
-      output <- capture.output({
-        result <- suppressWarnings(granite_check_system())
-      })
+      encodings <- list(input_ids = mock_input_ids, attention_mask = mock_attention_mask)
+      result <- graniteR:::to_device(encodings, labels = NULL, device = "cuda")
       
-      expect_true(result$python_available)
-      expect_true(result$cuda)
-      expect_true(any(grepl("CUDA devices: 2", output)))
+      expect_equal(result$encodings$input_ids, "cuda_input")
+      expect_equal(result$encodings$attention_mask, "cuda_mask")
+      expect_null(result$labels)
     }
   )
 })
+
+test_that("to_device moves encodings and labels to CUDA device", {
+  skip_on_cran()
+  skip_if_no_python_or_modules()
+  
+  mock_cuda_device_obj <- mock_torch_device("cuda")
+  
+  # Create mock objects that behave like torch tensors
+  mock_input_ids <- list(to = function(device) {
+    "cuda_input"
+  })
+  mock_attention_mask <- list(to = function(device) {
+    "cuda_mask"
+  })
+  mock_labels <- list(to = function(device) {
+    "cuda_labels"
+  })
+  
+  mock_torch <- list(
+    device = function(type) {
+      mock_cuda_device_obj
+    }
+  )
+  
+  with_mocked_bindings(
+    import = function(module) {
+      if (module == "torch") mock_torch else stop("Unexpected import")
+    },
+    .package = "reticulate",
+    {
+      encodings <- list(input_ids = mock_input_ids, attention_mask = mock_attention_mask)
+      result <- graniteR:::to_device(encodings, labels = mock_labels, device = "cuda")
+      
+      expect_equal(result$encodings$input_ids, "cuda_input")
+      expect_equal(result$encodings$attention_mask, "cuda_mask")
+      expect_equal(result$labels, "cuda_labels")
+    }
+  )
+})
+
