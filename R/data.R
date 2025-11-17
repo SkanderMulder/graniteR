@@ -226,3 +226,74 @@
 #' table(hate_speech_full$label_name)
 #' }
 "hate_speech_full"
+
+#' Example Trained MoE Classifier (Structure Reference)
+#'
+#' An example Mixture of Experts classifier object showing the structure of a
+#' trained model. This is provided as a reference for understanding the object
+#' structure returned by \code{moe_classifier()} and \code{auto_classify()}.
+#'
+#' @format A trained moe_classifier object with the following components:
+#' \describe{
+#'   \item{model}{Python model object (pointer not portable across sessions)}
+#'   \item{tokenizer}{Tokenizer object with model_name}
+#'   \item{num_labels}{Integer. Number of output classes (6 for emotion detection)}
+#'   \item{num_experts}{Integer. Number of expert networks (4)}
+#'   \item{device}{Character. Device used for training ("cuda" or "cpu")}
+#'   \item{is_trained}{Logical. Whether model has been trained (TRUE)}
+#'   \item{model_type}{Character. Model architecture type ("moe")}
+#' }
+#'
+#' @details
+#' **Important Notes**:
+#' \itemize{
+#'   \item This model contains Python object pointers that are not portable
+#'   \item The model cannot be used for inference after loading from .rda
+#'   \item This is purely for reference and understanding object structure
+#'   \item For actual inference, train a new model using:
+#'     - \code{auto_classify()} for automatic selection
+#'     - \code{moe_classifier()} for manual configuration
+#' }
+#'
+#' **Model Configuration**:
+#' - Task: Emotion detection (6 classes: sadness, joy, love, anger, fear, surprise)
+#' - Architecture: Mixture of Experts with 4 expert networks
+#' - Backbone: ibm-granite/granite-embedding-english-r2
+#' - Training: Full fine-tuning (freeze_backbone = FALSE)
+#'
+#' **Object Structure Example**:
+#' \preformatted{
+#' List of 7
+#'  $ model      : <Python model pointer>
+#'  $ tokenizer  : List of 2
+#'    ..$ tokenizer  : <Python tokenizer pointer>
+#'    ..$ model_name : chr "ibm-granite/granite-embedding-english-r2"
+#'  $ num_labels : num 6
+#'  $ num_experts: num 4
+#'  $ device     : chr "cuda"
+#'  $ is_trained : logi TRUE
+#'  $ model_type : chr "moe"
+#'  - attr("class") = chr [1:3] "moe_classifier" "granite_classifier" "granite_model"
+#' }
+#'
+#' @seealso
+#' \code{\link{moe_classifier}}, \code{\link{auto_classify}}, \code{\link{classifier}}
+#'
+#' @examples
+#' \dontrun{
+#' # Load the example (structure only, not usable for inference)
+#' data(clf_moe_example)
+#'
+#' # Inspect structure
+#' str(clf_moe_example)
+#' class(clf_moe_example)
+#'
+#' # To create a working model, train a new one:
+#' data(emotion_sample)
+#' clf <- auto_classify(emotion_sample, text, label)
+#'
+#' # Or manually:
+#' clf <- moe_classifier(num_labels = 6, num_experts = 4) |>
+#'   train_moe(emotion_sample, text, label, epochs = 3)
+#' }
+"clf_moe_example"
