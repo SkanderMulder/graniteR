@@ -187,10 +187,22 @@ train <- function(
   training_start_time <- Sys.time()
   total_batches <- ceiling(length(train_texts) / batch_size) * epochs
 
+  batch_times <- numeric()
+
   for (epoch in seq_len(epochs)) {
     total_loss <- 0
     n_batches <- ceiling(length(train_texts) / batch_size)
     epoch_start_time <- Sys.time()
+    avg_loss <- 0
+    eta_str <- "calculating..."
+
+    if (verbose) {
+      cli::cli_progress_bar(
+        format = "Epoch {epoch}/{epochs} | Batch {cli::pb_current}/{cli::pb_total} | Loss: {sprintf('%.4f', avg_loss)} | ETA: {eta_str}",
+        total = n_batches,
+        clear = FALSE
+      )
+    }
 
     for (i in seq_len(n_batches)) {
       batch_start <- Sys.time()
@@ -218,12 +230,17 @@ train <- function(
       optimizer$step()
       total_loss <- total_loss + outputs$loss$item()
 
+      batch_times <- c(batch_times, as.numeric(difftime(Sys.time(), batch_start, units = "secs")))
+
       if (verbose) {
+        avg_loss <- total_loss / i
+
+        recent_batch_times <- tail(batch_times, min(10, length(batch_times)))
+        avg_batch_time <- mean(recent_batch_times)
+
         current_batch <- (epoch - 1) * n_batches + i
-        elapsed <- as.numeric(difftime(Sys.time(), training_start_time, units = "secs"))
-        time_per_batch <- elapsed / current_batch
         remaining_batches <- total_batches - current_batch
-        eta_secs <- time_per_batch * remaining_batches
+        eta_secs <- avg_batch_time * remaining_batches
 
         eta_str <- if (eta_secs < 60) {
           sprintf("%.0fs", eta_secs)
@@ -233,14 +250,12 @@ train <- function(
           sprintf("%.1fh", eta_secs / 3600)
         }
 
-        avg_loss <- total_loss / i
-        batch_time <- as.numeric(difftime(Sys.time(), batch_start, units = "secs"))
-
-        message(sprintf(
-          "Epoch %d/%d | Batch %d/%d | Loss: %.4f | ETA: %s (%.2fs/batch)",
-          epoch, epochs, i, n_batches, avg_loss, eta_str, batch_time
-        ))
+        cli::cli_progress_update(set = i, .envir = environment())
       }
+    }
+
+    if (verbose) {
+      cli::cli_progress_done()
     }
 
     if (verbose) {
