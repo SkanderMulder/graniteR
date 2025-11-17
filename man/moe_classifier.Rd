@@ -11,9 +11,10 @@ moe_classifier(
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
   device = NULL,
-  freeze_backbone = TRUE,
+  freeze_backbone = FALSE,
   hidden_dim = NULL,
-  dropout = 0.1
+  dropout = 0.2,
+  expert_depth = 2
 )
 }
 \arguments{
@@ -29,11 +30,13 @@ moe_classifier(
 
 \item{device}{Device to use ("cpu" or "cuda"). If NULL, automatically detects GPU availability.}
 
-\item{freeze_backbone}{Whether to freeze the pretrained backbone (default: TRUE)}
+\item{freeze_backbone}{Whether to freeze the pretrained backbone (default: FALSE for MoE)}
 
-\item{hidden_dim}{Hidden dimension for expert networks (default: backbone_size/2)}
+\item{hidden_dim}{Hidden dimension for expert networks (default: backbone_size)}
 
-\item{dropout}{Dropout probability for expert networks (default: 0.1)}
+\item{dropout}{Dropout probability for expert networks (default: 0.2)}
+
+\item{expert_depth}{Number of layers per expert network (default: 2)}
 }
 \value{
 A MoE classifier object with model and tokenizer
@@ -54,11 +57,16 @@ The Mixture of Experts (MoE) architecture provides several advantages:
 
 The architecture consists of:
 \itemize{
-  \item Frozen/unfrozen pretrained backbone (Granite)
-  \item N expert networks (feed-forward heads)
+  \item Pretrained backbone (usually unfrozen for MoE to be effective)
+  \item N expert networks (deeper feed-forward heads)
   \item Gating network that learns to weight experts
   \item Load balancing loss to encourage expert diversity
 }
+
+**Important**: MoE works best with freeze_backbone=FALSE. With frozen backbone,
+the standard classifier often performs similarly or better due to simpler optimization.
+MoE requires more training data and compute but can achieve higher accuracy on
+complex multi-class tasks when properly tuned.
 }
 \examples{
 \dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}

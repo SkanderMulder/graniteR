@@ -17,7 +17,7 @@ class MoEEmotionClassifier(nn.Module):
 
     The model consists of:
     1. A frozen/unfrozen pretrained backbone (e.g., Granite)
-    2. Multiple expert networks (feed-forward heads)
+    2. Multiple expert networks (deeper feed-forward heads)
     3. A gating network that dynamically weights expert contributions
 
     Args:
@@ -25,8 +25,13 @@ class MoEEmotionClassifier(nn.Module):
         num_experts: Number of expert networks (default: 4)
         num_classes: Number of output classes
         freeze_backbone: Whether to freeze the pretrained backbone
-        hidden_dim: Hidden dimension for expert networks (default: backbone_size//2)
-        dropout: Dropout probability for expert networks (default: 0.1)
+        hidden_dim: Hidden dimension for expert networks (default: backbone_size)
+        dropout: Dropout probability for expert networks (default: 0.2)
+        expert_depth: Number of layers per expert (default: 2)
+
+    Note:
+        MoE typically works best with freeze_backbone=False for multi-class tasks.
+        With frozen backbone, the standard classifier often performs similarly.
     """
 
     def __init__(
@@ -34,9 +39,10 @@ class MoEEmotionClassifier(nn.Module):
         model_name="ibm-granite/granite-embedding-english-r2",
         num_experts=4,
         num_classes=6,
-        freeze_backbone=True,
+        freeze_backbone=False,
         hidden_dim=None,
-        dropout=0.1
+        dropout=0.2,
+        expert_depth=2
     ):
         super().__init__()
 
@@ -50,31 +56,45 @@ class MoEEmotionClassifier(nn.Module):
             param.requires_grad = not freeze_backbone
 
         hidden_size = self.backbone.config.hidden_size
-        expert_hidden = hidden_dim or (hidden_size // 2)
+        expert_hidden = hidden_dim or hidden_size
 
-        # Experts: specialized feed-forward heads with dropout
+        # Experts: deeper specialized feed-forward heads
+        def create_expert(depth):
+            layers = []
+            input_dim = hidden_size
+
+            for i in range(depth):
+                output_dim = expert_hidden if i < depth - 1 else num_classes
+                layers.extend([
+                    nn.Linear(input_dim, output_dim),
+                ])
+
+                if i < depth - 1:
+                    layers.extend([
+                        nn.LayerNorm(output_dim),
+                        nn.GELU(),
+                        nn.Dropout(dropout)
+                    ])
+
+                input_dim = output_dim
+
+            return nn.Sequential(*layers)
+
         self.experts = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(hidden_size, expert_hidden),
-                nn.LayerNorm(expert_hidden),
-                nn.ReLU(),
-                nn.Dropout(dropout),
-                nn.Linear(expert_hidden, num_classes)
-            )
-            for _ in range(num_experts)
+            create_expert(expert_depth) for _ in range(num_experts)
         ])
 
-        # Gating network with more capacity
+        # Gating network with more capacity for better routing
         self.gate = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size // 4),
-            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_size // 4, num_experts),
+            nn.Linear(hidden_size // 2, num_experts),
             nn.Softmax(dim=1)
         )
 
-        # Optional: load balancing loss coefficient
-        self.load_balance_coefficient = 0.01
+        # Load balancing loss coefficient (higher for frozen backbone)
+        self.load_balance_coefficient = 0.05 if freeze_backbone else 0.01
 
     def forward(self, input_ids, attention_mask, labels=None):
         """

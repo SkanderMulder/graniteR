@@ -14,15 +14,27 @@
 #' @param label_col Optional label column name (unquoted) to infer num_labels from
 #' @param model_name Model identifier from Hugging Face Hub
 #' @param device Device to use ("cpu" or "cuda"). If NULL, automatically detects GPU availability.
+#' @param freeze_backbone Whether to freeze the pretrained backbone (default: TRUE).
+#'   Set to FALSE for full fine-tuning which may improve accuracy but requires more
+#'   compute, time, and careful learning rate tuning.
 #' @return A classifier object with model and tokenizer
 #' @details
-#' The classifier uses a frozen pretrained model with only the classification head
-#' being trainable. This provides several advantages:
+#' By default, the classifier uses a frozen pretrained model with only the classification
+#' head being trainable. This provides several advantages:
 #' \itemize{
 #'   \item Faster training (fewer parameters to update)
 #'   \item Lower memory requirements
 #'   \item Better generalization on small datasets
 #'   \item Preserves pretrained knowledge
+#'   \item Works well with higher learning rates (1e-3)
+#' }
+#'
+#' For full fine-tuning (freeze_backbone=FALSE):
+#' \itemize{
+#'   \item Use lower learning rates (2e-5 to 5e-5)
+#'   \item Expect longer training time
+#'   \item May achieve slightly higher accuracy with enough data
+#'   \item Requires more GPU memory
 #' }
 #' @export
 #' @seealso \code{\link{train}}, \code{\link{predict}}
@@ -38,27 +50,28 @@ classifier <- function(
   data = NULL,
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
-  device = NULL
+  device = NULL,
+  freeze_backbone = TRUE
 ) {
-  # Auto-detect device if not specified
   if (is.null(device)) {
     torch <- reticulate::import("torch", delay_load = TRUE)
     device <- if (torch$cuda$is_available()) "cuda" else "cpu"
     cli::cli_alert_info("Using device: {device}")
   }
-  # Infer num_labels from data if not provided
+
   if (is.null(num_labels) && !is.null(data) && !is.null(rlang::enquo(label_col))) {
     label_col_quo <- rlang::enquo(label_col)
     labels <- dplyr::pull(data, !!label_col_quo)
     num_labels <- length(unique(labels))
     cli::cli_alert_info("Inferred num_labels = {num_labels} from data")
   }
-  
+
   if (is.null(num_labels)) {
     stop("num_labels must be specified or inferred from data. ",
          "Use: classifier(num_labels = 2) or ",
          "classifier(data = data, label_col = label)")
   }
+
   model <- granite_model(
     model_name = model_name,
     task = "classification",
@@ -66,15 +79,22 @@ classifier <- function(
     device = device
   )
 
+  if (!freeze_backbone) {
+    for (param in reticulate::iterate(model$model$parameters())) {
+      param$requires_grad <- TRUE
+    }
+    cli::cli_alert_info("Unfroze all model parameters for full fine-tuning")
+  }
+
   tokenizer <- granite_tokenizer(model_name)
 
-  # Verify parameter freezing
   all_params <- reticulate::iterate(model$model$parameters())
   trainable_params <- sum(sapply(all_params, function(p) as.logical(p$requires_grad)))
   total_params <- length(reticulate::iterate(model$model$parameters()))
 
+  param_desc <- if (freeze_backbone) "(head only)" else "(full model)"
   cli::cli_alert_info(
-    "Created classifier with {trainable_params} trainable parameters (head only) out of {total_params} total"
+    "Created classifier with {trainable_params} trainable parameters {param_desc} out of {total_params} total"
   )
 
   structure(
@@ -82,7 +102,8 @@ classifier <- function(
       model = model,
       tokenizer = tokenizer,
       num_labels = num_labels,
-      is_trained = FALSE
+      is_trained = FALSE,
+      freeze_backbone = freeze_backbone
     ),
     class = c("classifier", "granite_classifier", "granite_model")
   )

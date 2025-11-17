@@ -10,9 +10,10 @@
 #' @param label_col Optional label column name (unquoted) to infer num_labels from
 #' @param model_name Model identifier from Hugging Face Hub
 #' @param device Device to use ("cpu" or "cuda"). If NULL, automatically detects GPU availability.
-#' @param freeze_backbone Whether to freeze the pretrained backbone (default: TRUE)
-#' @param hidden_dim Hidden dimension for expert networks (default: backbone_size/2)
-#' @param dropout Dropout probability for expert networks (default: 0.1)
+#' @param freeze_backbone Whether to freeze the pretrained backbone (default: FALSE for MoE)
+#' @param hidden_dim Hidden dimension for expert networks (default: backbone_size)
+#' @param dropout Dropout probability for expert networks (default: 0.2)
+#' @param expert_depth Number of layers per expert network (default: 2)
 #' @return A MoE classifier object with model and tokenizer
 #'
 #' @details
@@ -26,11 +27,16 @@
 #'
 #' The architecture consists of:
 #' \itemize{
-#'   \item Frozen/unfrozen pretrained backbone (Granite)
-#'   \item N expert networks (feed-forward heads)
+#'   \item Pretrained backbone (usually unfrozen for MoE to be effective)
+#'   \item N expert networks (deeper feed-forward heads)
 #'   \item Gating network that learns to weight experts
 #'   \item Load balancing loss to encourage expert diversity
 #' }
+#'
+#' **Important**: MoE works best with freeze_backbone=FALSE. With frozen backbone,
+#' the standard classifier often performs similarly or better due to simpler optimization.
+#' MoE requires more training data and compute but can achieve higher accuracy on
+#' complex multi-class tasks when properly tuned.
 #'
 #' @export
 #' @seealso \code{\link{train_moe}}, \code{\link{predict.moe_classifier}}
@@ -51,9 +57,10 @@ moe_classifier <- function(
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
   device = NULL,
-  freeze_backbone = TRUE,
+  freeze_backbone = FALSE,
   hidden_dim = NULL,
-  dropout = 0.1
+  dropout = 0.2,
+  expert_depth = 2
 ) {
   if (is.null(device)) {
     torch <- reticulate::import("torch", delay_load = TRUE)
@@ -77,6 +84,11 @@ moe_classifier <- function(
     cli::cli_alert_info("Using {num_experts} experts (recommended for {num_labels} classes)")
   }
 
+  if (freeze_backbone) {
+    cli::cli_alert_warning("MoE with frozen backbone may not improve over standard classifier")
+    cli::cli_alert_info("Consider setting freeze_backbone=FALSE for better MoE performance")
+  }
+
   moe_module <- reticulate::import_from_path(
     "moe_classifier",
     path = system.file("python", package = "graniteR")
@@ -98,7 +110,8 @@ moe_classifier <- function(
       num_classes = as.integer(num_labels),
       freeze_backbone = freeze_backbone,
       hidden_dim = if (is.null(hidden_dim)) NULL else as.integer(hidden_dim),
-      dropout = dropout
+      dropout = dropout,
+      expert_depth = as.integer(expert_depth)
     )
   }
 

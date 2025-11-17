@@ -21,9 +21,18 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-This vignette demonstrates the Mixture of Experts (MoE) architecture for text classification in graniteR. MoE is an advanced technique that can improve performance on complex multi-class problems by using multiple specialized expert networks whose outputs are dynamically weighted based on the input.
+This vignette demonstrates the Mixture of Experts (MoE) architecture for text classification in graniteR. MoE is an advanced technique that uses multiple specialized expert networks whose outputs are dynamically weighted based on the input.
 
-We compare the standard single-head classifier with the MoE approach on the emotion detection task (6 classes), showing when and why MoE can provide benefits.
+**Important Reality Check**: MoE is **not a silver bullet**. It can improve performance on some tasks but requires:
+- Unfrozen backbone (full fine-tuning)
+- More training data than standard classifiers
+- Careful hyperparameter tuning
+- Significantly more compute and training time
+
+We compare the standard single-head classifier with the MoE approach on the emotion detection task, showing:
+1. When MoE can provide benefits (with proper setup)
+2. When standard classifiers are sufficient
+3. The tradeoffs between approaches
 
 ## Prerequisites
 
@@ -66,16 +75,24 @@ Input → Backbone → ┌ Expert 1 ┐
 
 ### When to Use MoE
 
-MoE is particularly effective when:
+MoE **may** be effective when:
 - Multi-class problems with distinct classes (e.g., emotions, topics)
-- Sufficient training data for multiple experts
-- Classes have different characteristics that can be learned separately
-- Standard classifier plateaus in performance
+- **Large** training datasets (20K+ samples for 6 classes)
+- Willing to fine-tune the entire backbone (not just the head)
+- Standard classifier plateaus and you have compute budget for experimentation
+- Classes have very different linguistic characteristics
 
-MoE may not help when:
-- Binary classification (too simple)
-- Very small datasets (risk of overfitting)
-- Classes are not clearly distinct
+MoE is **not recommended** when:
+- Binary classification (too simple, no benefit)
+- Small datasets (<10K samples)
+- Limited compute budget (MoE needs more training time)
+- Using frozen backbone (standard classifier is simpler and often better)
+- Quick experimentation needed (standard classifier trains faster)
+
+**Rule of Thumb**: Start with the standard classifier. Only try MoE if:
+1. You have the compute resources for full fine-tuning
+2. Standard classifier is not meeting your requirements
+3. You have enough data to support multiple experts
 
 ## Loading the Dataset
 
@@ -125,8 +142,9 @@ clf_standard <- clf_standard |>
 clf_moe <- moe_classifier(
   num_labels = 6,
   num_experts = 4,
-  freeze_backbone = TRUE,
-  dropout = 0.1
+  freeze_backbone = FALSE,
+  dropout = 0.2,
+  expert_depth = 2
 )
 
 clf_moe <- clf_moe |>
@@ -136,14 +154,25 @@ clf_moe <- clf_moe |>
     label,
     epochs = 5,
     batch_size = 8,
-    learning_rate = 1e-3,
+    learning_rate = 2e-5,
     validation_split = 0.2
   )
 ```
 
-Note that MoE training shows additional loss components:
+**Key Differences from Standard Classifier**:
+- `freeze_backbone = FALSE`: Full fine-tuning (required for MoE to be effective)
+- Lower learning rate (2e-5 vs 1e-3): Required when fine-tuning the backbone
+- More epochs may be needed: MoE training is slower to converge
+- `expert_depth = 2`: Deeper expert networks for more capacity
+
+MoE training shows additional loss components:
 - **cls**: Classification loss (cross-entropy)
 - **lb**: Load balancing loss (encourages expert diversity)
+
+**Training Time**: Expect MoE to take 2-3x longer than standard classifier due to:
+1. Multiple expert networks
+2. Gating network computation
+3. Unfrozen backbone requiring full backpropagation
 
 ## Making Predictions
 
@@ -437,39 +466,74 @@ cat(sprintf("Inference time: Similar (gating adds minimal overhead)\n"))
 
 ## Best Practices
 
-1. **Start Simple**: Try standard classifier first to establish baseline
-2. **Use MoE for Multi-Class**: Most effective with 4+ classes
-3. **Monitor Load Balancing**: Check if experts are being used (not collapsed to one)
-4. **Analyze Specialization**: Use expert weights to understand what model learned
-5. **Regularization**: Use dropout to prevent overfitting with multiple experts
-6. **Expert Count**: Start with num_experts ≈ num_classes / 2
+1. **Always Start Simple**: Train standard classifier first to establish baseline
+2. **Set Realistic Expectations**: MoE may only improve by 1-3% over standard, if at all
+3. **Full Fine-Tuning Required**: MoE with frozen backbone rarely helps
+4. **More Data Needed**: MoE needs more samples than standard (aim for 5-10K per class)
+5. **Lower Learning Rates**: Use 2e-5 to 5e-5 when unfreezing backbone
+6. **Monitor Load Balancing**: Check if experts are being used (watch lb loss)
+7. **Expert Count**: Start with num_experts = 3-4, not more
+8. **Dropout is Critical**: Use 0.2-0.3 to prevent overfitting
+9. **Budget More Training**: MoE needs more epochs and time to converge
 
 ## When MoE Helps Most
 
-Based on empirical results, MoE provides the largest gains when:
+Based on empirical results and research, MoE provides gains when:
 
-1. **Distinct Classes**: Classes have clear semantic differences (emotions vs. fine-grained sentiment)
-2. **Sufficient Data**: At least 5,000-10,000 samples for multi-class tasks
-3. **Class Imbalance**: Different experts can specialize in rare vs. common classes
-4. **Complex Boundaries**: When single head struggles to separate all classes
+1. **Very Distinct Classes**: Classes have fundamentally different linguistic patterns
+2. **Large Datasets**: 50K+ samples total, or 5-10K per class minimum
+3. **Complex Boundaries**: When full fine-tuning standard classifier still plateaus
+4. **Compute Available**: When training time and GPU memory are not constraints
+
+**Reality Check**: On many standard benchmarks, a well-tuned standard classifier with
+full fine-tuning performs within 1% of MoE while being:
+- Faster to train
+- Easier to tune
+- More stable
+- Less prone to overfitting
+
+**When to Skip MoE**:
+- Frozen backbone scenarios (standard is better)
+- Small datasets (<20K total samples)
+- Limited compute budget
+- Time-sensitive projects
+- Binary classification tasks
 
 ## Conclusion
 
-Mixture of Experts is a powerful technique for improving multi-class text classification:
+Mixture of Experts is an advanced technique for multi-class text classification with realistic tradeoffs:
 
-**Advantages:**
-- Can improve accuracy over standard single-head classifiers
-- Provides interpretability through expert specialization
-- Handles class imbalance naturally through specialization
-- More expressive model capacity
+**When MoE Helps:**
+- Large datasets (50K+ samples)
+- Complex multi-class problems (6+ classes)
+- Distinct class characteristics
+- Full fine-tuning budget available
+- Standard classifier has plateaued
 
-**Disadvantages:**
-- More parameters to train (risk of overfitting on small data)
-- Slightly slower training
-- Requires careful hyperparameter tuning
-- May not help for binary or simple tasks
+**When to Use Standard Classifier Instead:**
+- Small to medium datasets (<20K samples)
+- Binary classification
+- Frozen backbone scenarios
+- Limited compute budget
+- Quick iteration needed
 
-**Key Takeaway:** Use MoE when standard classifiers plateau and you have sufficient data for the added model capacity.
+**Realistic Performance Expectations:**
+- MoE may improve accuracy by 1-3% over standard (if at all)
+- Requires 2-3x more training time
+- Needs careful hyperparameter tuning
+- Standard classifier with full fine-tuning often competitive
+
+**Key Takeaways:**
+1. **Always start with standard classifier** - establish baseline first
+2. **MoE needs unfrozen backbone** - frozen backbone rarely shows benefit
+3. **More data required** - MoE needs more samples than standard
+4. **Set realistic expectations** - marginal gains, not breakthrough improvements
+5. **Consider costs** - training time, complexity, tuning effort
+
+**Bottom Line:** MoE is a research-backed technique that can provide marginal improvements
+on specific tasks, but is not a replacement for good data, proper preprocessing, and
+well-tuned standard models. Use it as an advanced optimization step after exhausting
+simpler approaches.
 
 ## References
 

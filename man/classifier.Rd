@@ -9,7 +9,8 @@ classifier(
   data = NULL,
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
-  device = NULL
+  device = NULL,
+  freeze_backbone = TRUE
 )
 }
 \arguments{
@@ -23,6 +24,10 @@ If NULL and data is provided, will be inferred from unique labels.}
 \item{model_name}{Model identifier from Hugging Face Hub}
 
 \item{device}{Device to use ("cpu" or "cuda"). If NULL, automatically detects GPU availability.}
+
+\item{freeze_backbone}{Whether to freeze the pretrained backbone (default: TRUE).
+Set to FALSE for full fine-tuning which may improve accuracy but requires more
+compute, time, and careful learning rate tuning.}
 }
 \value{
 A classifier object with model and tokenizer
@@ -38,13 +43,22 @@ This approach is more efficient and prevents overfitting on smaller datasets
 while leveraging the pretrained representations.
 
 
-The classifier uses a frozen pretrained model with only the classification head
-being trainable. This provides several advantages:
+By default, the classifier uses a frozen pretrained model with only the classification
+head being trainable. This provides several advantages:
 \itemize{
   \item Faster training (fewer parameters to update)
   \item Lower memory requirements
   \item Better generalization on small datasets
   \item Preserves pretrained knowledge
+  \item Works well with higher learning rates (1e-3)
+}
+
+For full fine-tuning (freeze_backbone=FALSE):
+\itemize{
+  \item Use lower learning rates (2e-5 to 5e-5)
+  \item Expect longer training time
+  \item May achieve slightly higher accuracy with enough data
+  \item Requires more GPU memory
 }
 }
 \examples{
