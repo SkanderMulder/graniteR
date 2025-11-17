@@ -395,7 +395,7 @@ evaluate_candidates_with_budget <- function(
 
     if (verbose) {
       cli::cli_alert_success(
-        "{config$description}: {sprintf('%.4f', mean_accuracy)} ± {sprintf('%.4f', sd_accuracy)}"
+        "{config$description}: {sprintf('%.4f', mean_accuracy)} +/- {sprintf('%.4f', sd_accuracy)}"
       )
     }
   }

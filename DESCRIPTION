@@ -13,6 +13,7 @@ Description: Provides a pipe-friendly interface to IBM's Granite embedding model
 License: MIT
 Encoding: UTF-8
 LazyData: true
+LazyDataCompression: xz
 RoxygenNote: 7.3.3
 Depends:
     R (>= 4.1.0)

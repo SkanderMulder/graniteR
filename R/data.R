@@ -31,10 +31,10 @@
 #'
 #' @format A data frame with 373,646 rows and 4 variables:
 #' \describe{
+#'   \item{id}{Integer. Unique identifier for each prompt}
+#'   \item{source}{Character. The source dataset from which the prompt originated}
 #'   \item{text}{Character. The text of the prompt}
 #'   \item{label}{Integer. Binary label where 1 indicates malicious and 0 indicates benign}
-#'   \item{source}{Character. The source dataset from which the prompt originated}
-#'   \item{type}{Character. Additional categorization of the prompt type}
 #' }
 #'
 #' @details
