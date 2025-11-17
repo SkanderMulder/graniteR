@@ -11,7 +11,11 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE
+  eval = TRUE,
+  fig.width = 10,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
 )
 ```
 
@@ -78,18 +82,17 @@ For this malicious prompt detection task, we demonstrate the end-to-end fine-tun
 
 ## Loading the Dataset
 
-```{r}
+```{r load-data}
 library(graniteR)
 library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(scales)
 
-# Load dataset from package
-# Option 1: Sample dataset (12,913 rows, faster for experimentation)
-data(malicious_prompts_sample, package = "graniteR")
-prompts <- malicious_prompts_sample
-
-# Option 2: Full dataset (373,646 rows, recommended for production models)
-# data(malicious_prompts_full, package = "graniteR")
-# prompts <- malicious_prompts_full
+# Load full dataset for comprehensive analysis
+data(malicious_prompts_full, package = "graniteR")
+prompts <- malicious_prompts_full
 
 # Examine structure
 glimpse(prompts)
@@ -99,24 +102,163 @@ The dataset contains:
 - `text`: The prompt content
 - `label`: Binary classification (0 = benign, 1 = malicious)
 - `source`: Origin of the data
+- `type`: Additional categorization
 
-For this tutorial, we use the sample dataset for faster execution. For production models, use `malicious_prompts_full` which contains 373,646 labeled examples.
+## Exploratory Data Analysis
 
-```{r}
-# Check class distribution
-table(prompts$label)
+### Class Distribution
 
+```{r class-distribution, fig.height=5}
+# Calculate class statistics
+class_stats <- prompts |>
+  mutate(class = ifelse(label == 1, "Malicious", "Benign")) |>
+  count(class) |>
+  mutate(
+    percentage = n / sum(n) * 100,
+    label_text = sprintf("%s\n%s (%.1f%%)", class, comma(n), percentage)
+  )
+
+ggplot(class_stats, aes(x = "", y = n, fill = class)) +
+  geom_col(width = 1, color = "white", size = 1.5) +
+  geom_text(aes(label = label_text),
+            position = position_stack(vjust = 0.5),
+            size = 5, fontface = "bold", color = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("Benign" = "#2ecc71", "Malicious" = "#e74c3c")) +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")
+  ) +
+  labs(title = "Dataset Class Distribution")
+```
+
+The dataset shows a class imbalance with approximately 76.5% benign and 23.5% malicious prompts, reflecting real-world distributions where malicious inputs are less common.
+
+### Prompt Length Analysis
+
+```{r length-analysis, fig.height=6}
+# Add text length metrics
+prompts_analysis <- prompts |>
+  mutate(
+    class = ifelse(label == 1, "Malicious", "Benign"),
+    char_length = nchar(text),
+    word_count = str_count(text, "\\S+")
+  )
+
+# Create length comparison plots
+p1 <- ggplot(prompts_analysis, aes(x = char_length, fill = class)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  scale_fill_manual(values = c("Benign" = "#2ecc71", "Malicious" = "#e74c3c")) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Character Length Distribution by Class",
+    x = "Character Count",
+    y = "Frequency",
+    fill = "Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+
+p2 <- ggplot(prompts_analysis, aes(x = class, y = word_count, fill = class)) +
+  geom_violin(alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(width = 0.2, alpha = 0.5, outlier.alpha = 0.3, show.legend = FALSE) +
+  scale_fill_manual(values = c("Benign" = "#2ecc71", "Malicious" = "#e74c3c")) +
+  scale_y_continuous(labels = comma) +
+  coord_cartesian(ylim = c(0, 500)) +
+  labs(
+    title = "Word Count Distribution by Class",
+    x = "",
+    y = "Word Count"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+
+```{r length-stats}
+# Summary statistics
+prompts_analysis |>
+  group_by(class) |>
+  summarise(
+    samples = n(),
+    mean_chars = round(mean(char_length), 1),
+    median_chars = round(median(char_length), 1),
+    mean_words = round(mean(word_count), 1),
+    median_words = round(median(word_count), 1)
+  ) |>
+  knitr::kable(caption = "Length Statistics by Class")
+```
+
+### Source Distribution
+
+```{r source-distribution, fig.height=7}
+# Analyze data sources
+source_stats <- prompts |>
+  mutate(class = ifelse(label == 1, "Malicious", "Benign")) |>
+  count(source, class) |>
+  group_by(source) |>
+  mutate(total = sum(n)) |>
+  ungroup() |>
+  arrange(desc(total))
+
+# Top sources
+top_sources <- source_stats |>
+  distinct(source, total) |>
+  slice_max(total, n = 10)
+
+source_stats_filtered <- source_stats |>
+  filter(source %in% top_sources$source)
+
+ggplot(source_stats_filtered, aes(x = reorder(source, total), y = n, fill = class)) +
+  geom_col() +
+  geom_text(aes(label = comma(n)),
+            position = position_stack(vjust = 0.5),
+            size = 3, color = "white") +
+  scale_fill_manual(values = c("Benign" = "#2ecc71", "Malicious" = "#e74c3c")) +
+  scale_y_continuous(labels = comma) +
+  coord_flip() +
+  labs(
+    title = "Top 10 Data Sources by Sample Count",
+    subtitle = "Distribution of benign and malicious prompts",
+    x = "",
+    y = "Number of Samples",
+    fill = "Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "top"
+  )
+```
+
+### Sample Prompts
+
+```{r sample-prompts}
 # View sample malicious prompts
+cat("Sample Malicious Prompts:\n")
 prompts |>
   filter(label == 1) |>
-  select(text) |>
-  head(3)
+  slice_sample(n = 3) |>
+  pull(text) |>
+  substr(1, 200) |>
+  paste0("...") |>
+  cat(sep = "\n\n")
 
-# View sample benign prompts
+cat("\n\nSample Benign Prompts:\n")
 prompts |>
   filter(label == 0) |>
-  select(text) |>
-  head(10)
+  slice_sample(n = 3) |>
+  pull(text) |>
+  substr(1, 200) |>
+  paste0("...") |>
+  cat(sep = "\n\n")
 ```
 
 ## Data Preparation
@@ -188,53 +330,193 @@ predictions |>
 
 ## Model Evaluation
 
-Evaluate classifier performance:
+### Performance Metrics
 
-```{r}
-# Calculate accuracy
-accuracy <- mean(predictions$prediction == predictions$label)
-cat("Test Accuracy:", round(accuracy, 4), "\n")
-
-# Confusion matrix
-table(
-  Predicted = predictions$prediction,
-  Actual = predictions$label
-)
-
-# Precision and recall for malicious class
+```{r metrics}
+# Calculate comprehensive metrics
 tp <- sum(predictions$prediction == 1 & predictions$label == 1)
 fp <- sum(predictions$prediction == 1 & predictions$label == 0)
 fn <- sum(predictions$prediction == 0 & predictions$label == 1)
+tn <- sum(predictions$prediction == 0 & predictions$label == 0)
 
+accuracy <- (tp + tn) / (tp + tn + fp + fn)
 precision <- tp / (tp + fp)
 recall <- tp / (tp + fn)
 f1 <- 2 * (precision * recall) / (precision + recall)
+specificity <- tn / (tn + fp)
 
-cat("Precision:", round(precision, 4), "\n")
-cat("Recall:", round(recall, 4), "\n")
-cat("F1 Score:", round(f1, 4), "\n")
+# Create metrics summary
+metrics_df <- data.frame(
+  Metric = c("Accuracy", "Precision", "Recall", "F1 Score", "Specificity"),
+  Value = c(accuracy, precision, recall, f1, specificity)
+)
+
+knitr::kable(metrics_df, digits = 4, caption = "Model Performance Metrics")
+```
+
+### Confusion Matrix Visualization
+
+```{r confusion-matrix, fig.height=6}
+# Create confusion matrix data
+conf_matrix <- data.frame(
+  Predicted = c("Benign", "Benign", "Malicious", "Malicious"),
+  Actual = c("Benign", "Malicious", "Benign", "Malicious"),
+  Count = c(tn, fn, fp, tp)
+) |>
+  mutate(
+    Percentage = Count / sum(Count) * 100,
+    Label = sprintf("%s\n(%.1f%%)", comma(Count), Percentage)
+  )
+
+ggplot(conf_matrix, aes(x = Actual, y = Predicted, fill = Count)) +
+  geom_tile(color = "white", size = 2) +
+  geom_text(aes(label = Label), size = 6, fontface = "bold") +
+  scale_fill_gradient(low = "#ecf0f1", high = "#3498db", labels = comma) +
+  labs(
+    title = "Confusion Matrix",
+    subtitle = sprintf("Overall Accuracy: %.2f%%", accuracy * 100),
+    x = "Actual Class",
+    y = "Predicted Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 13, face = "bold"),
+    legend.position = "right"
+  ) +
+  coord_fixed()
+```
+
+### Performance by Class
+
+```{r class-performance, fig.height=5}
+# Calculate per-class metrics
+class_metrics <- data.frame(
+  Class = rep(c("Benign", "Malicious"), each = 3),
+  Metric = rep(c("Precision", "Recall", "F1 Score"), 2),
+  Value = c(
+    tn / (tn + fn),  # Benign Precision
+    tn / (tn + fp),  # Benign Recall
+    2 * (tn / (tn + fn)) * (tn / (tn + fp)) / ((tn / (tn + fn)) + (tn / (tn + fp))),  # Benign F1
+    precision,       # Malicious Precision
+    recall,          # Malicious Recall
+    f1               # Malicious F1
+  )
+)
+
+ggplot(class_metrics, aes(x = Metric, y = Value, fill = Class)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = sprintf("%.3f", Value)),
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 4) +
+  scale_fill_manual(values = c("Benign" = "#2ecc71", "Malicious" = "#e74c3c")) +
+  scale_y_continuous(limits = c(0, 1.1), labels = percent) +
+  labs(
+    title = "Performance Metrics by Class",
+    x = "",
+    y = "Score",
+    fill = "Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
 ```
 
 For malicious prompt detection, high recall is critical to minimize false negatives (malicious prompts classified as benign).
 
+### Probability Distribution Analysis
+
+```{r probability-distribution, fig.height=6}
+# Analyze prediction probabilities
+prob_analysis <- probabilities |>
+  mutate(
+    actual_class = ifelse(test_data$label[1:n()] == 1, "Malicious", "Benign"),
+    malicious_prob = prob_2,
+    correct = (prob_2 > 0.5 & test_data$label[1:n()] == 1) |
+              (prob_2 <= 0.5 & test_data$label[1:n()] == 0)
+  )
+
+ggplot(prob_analysis, aes(x = malicious_prob, fill = actual_class)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "black", size = 1) +
+  scale_fill_manual(values = c("Benign" = "#2ecc71", "Malicious" = "#e74c3c")) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Predicted Probability Distribution",
+    subtitle = "Dashed line shows classification threshold (0.5)",
+    x = "Probability of Malicious Class",
+    y = "Count",
+    fill = "Actual Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "top"
+  )
+```
+
 ## Analyzing Difficult Cases
 
-Examine cases where the model is uncertain:
+### Confidence Analysis
 
-```{r}
-# Find low-confidence predictions
-uncertain <- probabilities |>
+```{r confidence-analysis, fig.height=5}
+# Analyze model confidence
+confidence_data <- probabilities |>
   mutate(
+    true_class = ifelse(test_data$label[1:n()] == 1, "Malicious", "Benign"),
     confidence = pmax(prob_1, prob_2),
-    true_label = test_data$label[1:n()]
-  ) |>
-  filter(confidence < 0.7) |>
-  arrange(confidence)
+    correct = (prob_2 > 0.5 & test_data$label[1:n()] == 1) |
+              (prob_2 <= 0.5 & test_data$label[1:n()] == 0),
+    prediction_type = case_when(
+      correct ~ "Correct",
+      !correct ~ "Incorrect"
+    )
+  )
 
-# View uncertain cases
+ggplot(confidence_data, aes(x = confidence, fill = prediction_type)) +
+  geom_histogram(bins = 30, alpha = 0.8) +
+  facet_wrap(~true_class, ncol = 1) +
+  scale_fill_manual(values = c("Correct" = "#27ae60", "Incorrect" = "#c0392b")) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Prediction Confidence Distribution by Outcome",
+    x = "Model Confidence",
+    y = "Count",
+    fill = "Prediction"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top",
+    strip.text = element_text(size = 12, face = "bold")
+  )
+```
+
+### Error Analysis
+
+```{r error-analysis}
+# Examine low-confidence predictions
+uncertain <- confidence_data |>
+  filter(confidence < 0.7) |>
+  arrange(confidence) |>
+  select(text, true_class, prob_1, prob_2, confidence, correct)
+
+cat(sprintf("Low-confidence predictions: %s (%.2f%% of total)\n",
+            comma(nrow(uncertain)),
+            nrow(uncertain) / nrow(confidence_data) * 100))
+
+# Show examples
+cat("\nExamples of low-confidence predictions:\n\n")
 uncertain |>
-  select(text, true_label, prob_1, prob_2, confidence) |>
-  head(10)
+  head(5) |>
+  mutate(text_preview = substr(text, 1, 150)) |>
+  select(text_preview, true_class, confidence, correct) |>
+  knitr::kable(col.names = c("Text Preview", "Actual", "Confidence", "Correct"))
 ```
 
 ## Advanced: Multi-Task Learning
@@ -287,6 +569,109 @@ Typical ranges for fine-tuning transformer models:
 - **2e-5 to 5e-5**: Conservative, stable training (recommended for most cases)
 - **1e-4 to 3e-4**: Faster convergence, risk of instability
 
+## Threshold Analysis
+
+### ROC Curve
+
+```{r roc-curve, fig.height=6}
+# Calculate ROC curve points
+thresholds <- seq(0, 1, by = 0.01)
+roc_data <- lapply(thresholds, function(thresh) {
+  pred_class <- ifelse(probabilities$prob_2 > thresh, 1, 0)
+  actual <- test_data$label[1:nrow(probabilities)]
+
+  tp <- sum(pred_class == 1 & actual == 1)
+  fp <- sum(pred_class == 1 & actual == 0)
+  fn <- sum(pred_class == 0 & actual == 1)
+  tn <- sum(pred_class == 0 & actual == 0)
+
+  tpr <- tp / (tp + fn)
+  fpr <- fp / (fp + tn)
+
+  data.frame(threshold = thresh, tpr = tpr, fpr = fpr)
+}) |> bind_rows()
+
+# Calculate AUC
+auc <- sum(diff(roc_data$fpr) * (head(roc_data$tpr, -1) + tail(roc_data$tpr, -1)) / 2)
+
+ggplot(roc_data, aes(x = fpr, y = tpr)) +
+  geom_line(color = "#3498db", size = 1.5) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50") +
+  annotate("text", x = 0.7, y = 0.3,
+           label = sprintf("AUC = %.4f", abs(auc)),
+           size = 6, fontface = "bold") +
+  labs(
+    title = "ROC Curve",
+    subtitle = "Receiver Operating Characteristic",
+    x = "False Positive Rate",
+    y = "True Positive Rate (Recall)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12)
+  ) +
+  coord_fixed()
+```
+
+### Precision-Recall Tradeoff
+
+```{r precision-recall-curve, fig.height=6}
+# Calculate precision-recall curve
+pr_data <- lapply(thresholds, function(thresh) {
+  pred_class <- ifelse(probabilities$prob_2 > thresh, 1, 0)
+  actual <- test_data$label[1:nrow(probabilities)]
+
+  tp <- sum(pred_class == 1 & actual == 1)
+  fp <- sum(pred_class == 1 & actual == 0)
+  fn <- sum(pred_class == 0 & actual == 1)
+
+  precision <- ifelse(tp + fp > 0, tp / (tp + fp), 1)
+  recall <- ifelse(tp + fn > 0, tp / (tp + fn), 0)
+  f1 <- ifelse(precision + recall > 0, 2 * precision * recall / (precision + recall), 0)
+
+  data.frame(
+    threshold = thresh,
+    precision = precision,
+    recall = recall,
+    f1 = f1
+  )
+}) |> bind_rows()
+
+# Find optimal threshold (max F1)
+optimal_threshold <- pr_data$threshold[which.max(pr_data$f1)]
+
+# Reshape for plotting
+pr_long <- pr_data |>
+  pivot_longer(cols = c(precision, recall, f1),
+               names_to = "metric",
+               values_to = "value")
+
+ggplot(pr_long, aes(x = threshold, y = value, color = metric)) +
+  geom_line(size = 1.2) +
+  geom_vline(xintercept = optimal_threshold, linetype = "dashed",
+             color = "black", size = 0.8) +
+  annotate("text", x = optimal_threshold + 0.15, y = 0.5,
+           label = sprintf("Optimal threshold\n%.3f", optimal_threshold),
+           size = 4) +
+  scale_color_manual(
+    values = c("precision" = "#e74c3c", "recall" = "#3498db", "f1" = "#2ecc71"),
+    labels = c("Precision", "Recall", "F1 Score")
+  ) +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Precision-Recall Tradeoff by Threshold",
+    x = "Classification Threshold",
+    y = "Score",
+    color = "Metric"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+```
+
 ## Deployment Considerations
 
 For production deployment:
@@ -296,12 +681,85 @@ For production deployment:
 3. **Regular Retraining**: Update model as new malicious patterns emerge
 4. **Ensemble Methods**: Combine multiple models for robustness
 
-```{r}
-# Example: Custom threshold
-custom_threshold <- 0.7
-predictions_conservative <- probabilities |>
+### Example: Custom Thresholds for Different Use Cases
+
+```{r threshold-scenarios, fig.height=5}
+# Define different threshold strategies
+threshold_scenarios <- data.frame(
+  scenario = c("Conservative", "Balanced", "Aggressive"),
+  threshold = c(0.3, 0.5, 0.7),
+  use_case = c(
+    "High recall, catch all potential threats",
+    "Balanced precision and recall",
+    "High precision, minimize false alarms"
+  )
+)
+
+# Calculate metrics for each scenario
+scenario_results <- lapply(1:nrow(threshold_scenarios), function(i) {
+  thresh <- threshold_scenarios$threshold[i]
+  pred_class <- ifelse(probabilities$prob_2 > thresh, 1, 0)
+  actual <- test_data$label[1:nrow(probabilities)]
+
+  tp <- sum(pred_class == 1 & actual == 1)
+  fp <- sum(pred_class == 1 & actual == 0)
+  fn <- sum(pred_class == 0 & actual == 1)
+  tn <- sum(pred_class == 0 & actual == 0)
+
+  data.frame(
+    scenario = threshold_scenarios$scenario[i],
+    threshold = thresh,
+    precision = tp / (tp + fp),
+    recall = tp / (tp + fn),
+    f1 = 2 * (tp / (tp + fp)) * (tp / (tp + fn)) / ((tp / (tp + fp)) + (tp / (tp + fn))),
+    false_positives = fp,
+    false_negatives = fn
+  )
+}) |> bind_rows()
+
+# Visualize scenario comparison
+scenario_long <- scenario_results |>
+  select(scenario, threshold, precision, recall, f1) |>
+  pivot_longer(cols = c(precision, recall, f1),
+               names_to = "metric",
+               values_to = "value")
+
+ggplot(scenario_long, aes(x = scenario, y = value, fill = metric)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = sprintf("%.3f", value)),
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 3.5) +
+  scale_fill_manual(
+    values = c("precision" = "#e74c3c", "recall" = "#3498db", "f1" = "#2ecc71"),
+    labels = c("Precision", "Recall", "F1 Score")
+  ) +
+  scale_y_continuous(limits = c(0, 1.1), labels = percent) +
+  labs(
+    title = "Performance Across Different Threshold Strategies",
+    x = "Scenario",
+    y = "Score",
+    fill = "Metric"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+```
+
+```{r scenario-table}
+# Display detailed scenario comparison
+scenario_results |>
   mutate(
-    prediction = ifelse(prob_2 > custom_threshold, 1, 0)
+    precision = sprintf("%.3f", precision),
+    recall = sprintf("%.3f", recall),
+    f1 = sprintf("%.3f", f1),
+    false_positives = comma(false_positives),
+    false_negatives = comma(false_negatives)
+  ) |>
+  knitr::kable(
+    col.names = c("Scenario", "Threshold", "Precision", "Recall", "F1", "False Positives", "False Negatives"),
+    caption = "Threshold Strategy Comparison"
   )
 ```
 
