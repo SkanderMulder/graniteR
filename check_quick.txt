@@ -1,0 +1,249 @@
+══ Documenting ═════════════════════════════════════════════════════════════════
+ℹ Updating graniteR documentation
+ℹ Loading graniteR
+
+══ Building ════════════════════════════════════════════════════════════════════
+Setting env vars:
+• CFLAGS    : -Wall -pedantic
+• CXXFLAGS  : -Wall -pedantic
+• CXX11FLAGS: -Wall -pedantic
+• CXX14FLAGS: -Wall -pedantic
+• CXX17FLAGS: -Wall -pedantic
+• CXX20FLAGS: -Wall -pedantic
+── R CMD build ─────────────────────────────────────────────────────────────────
+* checking for file ‘/home/skandeer/dev/graniteR/DESCRIPTION’ ... OK
+* preparing ‘graniteR’:
+* checking DESCRIPTION meta-information ... OK
+* checking for LF line-endings in source and make files and shell scripts
+* checking for empty or unneeded directories
+Removed empty directory ‘graniteR/vignettes/.quarto’
+* building ‘graniteR_0.1.0.tar.gz’
+
+══ Checking ════════════════════════════════════════════════════════════════════
+Setting env vars:
+• _R_CHECK_CRAN_INCOMING_USE_ASPELL_           : TRUE
+• _R_CHECK_CRAN_INCOMING_REMOTE_               : FALSE
+• _R_CHECK_CRAN_INCOMING_                      : FALSE
+• _R_CHECK_FORCE_SUGGESTS_                     : FALSE
+• _R_CHECK_PACKAGES_USED_IGNORE_UNUSED_IMPORTS_: FALSE
+• NOT_CRAN                                     : true
+── R CMD check ─────────────────────────────────────────────────────────────────
+* using log directory ‘/tmp/RtmpQJhmdc/file545c386db1e9/graniteR.Rcheck’
+* using R version 4.5.1 (2025-06-13)
+* using platform: x86_64-pc-linux-gnu
+* R was compiled by
+    gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0
+    GNU Fortran (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0
+* running under: Ubuntu 20.04.6 LTS
+* using session charset: UTF-8
+* using options ‘--no-examples --no-tests --no-manual --ignore-vignettes --as-cran’
+* checking for file ‘graniteR/DESCRIPTION’ ... OK
+* checking extension type ... Package
+* this is package ‘graniteR’ version ‘0.1.0’
+* package encoding: UTF-8
+* checking package namespace information ... OK
+* checking package dependencies ... INFO
+Package suggested but not available for checking: ‘mockery’
+* checking if this is a source package ... OK
+* checking if there is a namespace ... OK
+* checking for executable files ... OK
+* checking for hidden files and directories ... OK
+* checking for portable file names ... OK
+* checking for sufficient/correct file permissions ... OK
+* checking whether package ‘graniteR’ can be installed ... [45s/47s] OK
+* checking installed package size ... INFO
+  installed size is 96.6Mb
+  sub-directories of 1Mb or more:
+    data     94.3Mb
+    extdata   1.2Mb
+* checking package directory ... OK
+* checking for future file timestamps ... NOTE
+unable to verify current time
+* checking DESCRIPTION meta-information ... NOTE
+License components which are templates and need '+ file LICENSE':
+  MIT
+* checking top-level files ... NOTE
+File
+  LICENSE
+is not mentioned in the DESCRIPTION file.
+Non-standard files/directories found at top level:
+  ‘AUTOML_IMPLEMENTATION.md’ ‘check_output.txt’ ‘check_quick.txt’ ‘dev’
+* checking for left-over files ... OK
+* checking index information ... OK
+* checking package subdirectories ... OK
+* checking code files for non-ASCII characters ... WARNING
+Found the following file with non-ASCII characters:
+  R/auto_classify.R
+Portable packages must use only ASCII characters in their R code and
+NAMESPACE directives, except perhaps in comments.
+Use \uxxxx escapes for other characters.
+Function ‘tools::showNonASCIIfile’ can help in finding non-ASCII
+characters in files.
+* checking R files for syntax errors ... OK
+* checking whether the package can be loaded ... OK
+* checking whether the package can be loaded with stated dependencies ... OK
+* checking whether the package can be unloaded cleanly ... OK
+* checking whether the namespace can be loaded with stated dependencies ... OK
+* checking whether the namespace can be unloaded cleanly ... OK
+* checking loading without being on the library search path ... OK
+* checking whether startup messages can be suppressed ... OK
+* checking dependencies in R code ... OK
+* checking S3 generic/method consistency ... NOTE
+Mismatches for methods registered for non-generic:
+predict:
+  function(object, ...)
+predict.classifier:
+  function(classifier, data, text_col, type, batch_size, ...)
+predict:
+  function(object, ...)
+predict.granite_classifier:
+  function(classifier, data, text_col, type, batch_size, ...)
+predict:
+  function(object, ...)
+predict.moe_classifier:
+  function(classifier, data, text_col, type, batch_size, ...)
+See section ‘Registering S3 methods’ in the ‘Writing R Extensions’
+manual.
+* checking replacement functions ... OK
+* checking foreign function calls ... OK
+* checking R code for possible problems ... [30s/16s] NOTE
+compute_meta_features: no visible global function definition for
+  ‘median’
+compute_meta_features: no visible global function definition for ‘sd’
+evaluate_candidates_with_budget: no visible global function definition
+  for ‘sd’
+predict.ensemble_classifier : <anonymous>: no visible global function
+  definition for ‘predict’
+train: no visible global function definition for ‘tail’
+train_and_evaluate_fold: no visible binding for global variable ‘text’
+train_and_evaluate_fold: no visible binding for global variable ‘label’
+train_and_evaluate_fold: no visible global function definition for
+  ‘predict’
+train_final_model: no visible binding for global variable ‘text’
+train_final_model: no visible binding for global variable ‘label’
+train_moe: no visible global function definition for ‘tail’
+Undefined global functions or variables:
+  label median predict sd tail text
+Consider adding
+  importFrom("graphics", "text")
+  importFrom("stats", "median", "predict", "sd")
+  importFrom("utils", "tail")
+to your NAMESPACE file.
+* checking Rd files ... OK
+* checking Rd metadata ... OK
+* checking Rd line widths ... OK
+* checking Rd cross-references ... OK
+* checking for missing documentation entries ... OK
+* checking for code/documentation mismatches ... WARNING
+Data codoc mismatches from Rd file 'malicious_prompts_full.Rd':
+Variables in data frame 'malicious_prompts_full'
+  Code: id label source text
+  Docs: label source text type
+* checking Rd \usage sections ... OK
+* checking Rd contents ... OK
+* checking for unstated dependencies in examples ... WARNING
+'library' or 'require' call not declared from: ‘transformers’
+* checking contents of ‘data’ directory ... OK
+* checking data for non-ASCII characters ... OK
+* checking LazyData ... WARNING
+  LazyData DB of 94.3 MB without LazyDataCompression set
+  See §1.1.6 of 'Writing R Extensions'
+* checking data for ASCII and uncompressed saves ... OK
+* checking files in ‘vignettes’ ... SKIPPED
+* checking examples ... SKIPPED
+* checking for unstated dependencies in ‘tests’ ... OK
+* checking tests ... SKIPPED
+* checking for non-standard things in the check directory ... OK
+* checking for detritus in the temp directory ... OK
+* DONE
+
+Status: 4 WARNINGs, 5 NOTEs
+See
+  ‘/tmp/RtmpQJhmdc/file545c386db1e9/graniteR.Rcheck/00check.log’
+for details.
+
+── R CMD check results ───────────────────────────────────── graniteR 0.1.0 ────
+Duration: 2m 44.2s
+
+❯ checking code files for non-ASCII characters ... WARNING
+  Found the following file with non-ASCII characters:
+    R/auto_classify.R
+  Portable packages must use only ASCII characters in their R code and
+  NAMESPACE directives, except perhaps in comments.
+  Use \uxxxx escapes for other characters.
+  Function ‘tools::showNonASCIIfile’ can help in finding non-ASCII
+  characters in files.
+
+❯ checking for code/documentation mismatches ... WARNING
+  Data codoc mismatches from Rd file 'malicious_prompts_full.Rd':
+  Variables in data frame 'malicious_prompts_full'
+    Code: id label source text
+    Docs: label source text type
+
+❯ checking for unstated dependencies in examples ... WARNING
+  'library' or 'require' call not declared from: ‘transformers’
+
+❯ checking LazyData ... WARNING
+    LazyData DB of 94.3 MB without LazyDataCompression set
+    See §1.1.6 of 'Writing R Extensions'
+
+❯ checking for future file timestamps ... NOTE
+  unable to verify current time
+
+❯ checking DESCRIPTION meta-information ... NOTE
+  License components which are templates and need '+ file LICENSE':
+    MIT
+
+❯ checking top-level files ... NOTE
+  File
+    LICENSE
+  is not mentioned in the DESCRIPTION file.
+  Non-standard files/directories found at top level:
+    ‘AUTOML_IMPLEMENTATION.md’ ‘check_output.txt’ ‘check_quick.txt’ ‘dev’
+
+❯ checking S3 generic/method consistency ... NOTE
+  Mismatches for methods registered for non-generic:
+  predict:
+    function(object, ...)
+  predict.classifier:
+    function(classifier, data, text_col, type, batch_size, ...)
+  
+  predict:
+    function(object, ...)
+  predict.granite_classifier:
+    function(classifier, data, text_col, type, batch_size, ...)
+  
+  predict:
+    function(object, ...)
+  predict.moe_classifier:
+    function(classifier, data, text_col, type, batch_size, ...)
+  See section ‘Registering S3 methods’ in the ‘Writing R Extensions’
+  manual.
+
+❯ checking R code for possible problems ... [30s/16s] NOTE
+  compute_meta_features: no visible global function definition for
+    ‘median’
+  compute_meta_features: no visible global function definition for ‘sd’
+  evaluate_candidates_with_budget: no visible global function definition
+    for ‘sd’
+  predict.ensemble_classifier : <anonymous>: no visible global function
+    definition for ‘predict’
+  train: no visible global function definition for ‘tail’
+  train_and_evaluate_fold: no visible binding for global variable ‘text’
+  train_and_evaluate_fold: no visible binding for global variable ‘label’
+  train_and_evaluate_fold: no visible global function definition for
+    ‘predict’
+  train_final_model: no visible binding for global variable ‘text’
+  train_final_model: no visible binding for global variable ‘label’
+  train_moe: no visible global function definition for ‘tail’
+  Undefined global functions or variables:
+    label median predict sd tail text
+  Consider adding
+    importFrom("graphics", "text")
+    importFrom("stats", "median", "predict", "sd")
+    importFrom("utils", "tail")
+  to your NAMESPACE file.
+
+0 errors ✔ | 4 warnings ✖ | 5 notes ✖
+Error: R CMD check found WARNINGs
+Execution halted
