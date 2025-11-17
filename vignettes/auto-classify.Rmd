@@ -1,0 +1,413 @@
+---
+title: "Getting Started: Auto-Classify for Easy Text Classification"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started: Auto-Classify for Easy Text Classification}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  fig.width = 10,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+`auto_classify()` is the easiest way to get started with text classification in graniteR. It handles all the complexity for you:
+
+- Automatically selects the best model architecture
+- Performs cross-validation to compare approaches
+- Handles hyperparameter selection
+- Trains the final model on all data
+- Returns a ready-to-use classifier
+
+**No parameters to tune. No decisions to make. Just point it at your data.**
+
+## Quick Start
+
+```{r quickstart}
+library(graniteR)
+library(dplyr)
+
+# Load data
+data(emotion_sample)
+
+# That's it! Auto-classify handles everything
+clf <- auto_classify(
+  data = emotion_sample,
+  text_col = text,
+  label_col = label
+)
+
+# Make predictions
+test_data <- emotion_sample |> slice_sample(n = 100)
+predictions <- predict(clf, test_data, text)
+```
+
+## What Auto-Classify Does
+
+### 1. Analyzes Your Dataset
+
+```{r}
+# Checks:
+# - Number of samples
+# - Number of classes
+# - Binary vs multi-class
+# - Dataset size category
+```
+
+### 2. Selects Strategy
+
+Based on your data, it automatically chooses:
+
+**Small datasets (<5K samples)**:
+- Frozen backbone (fast, prevents overfitting)
+- Higher learning rate (1e-3)
+- Fewer epochs
+
+**Medium datasets (5-20K samples)**:
+- Tests frozen vs full fine-tuning via cross-validation
+- Selects best approach
+
+**Large datasets (20-50K samples)**:
+- Full fine-tuning (better accuracy)
+- Lower learning rate (2e-5)
+- More epochs
+
+**Very large datasets (50K+ samples, 4+ classes)**:
+- Tests standard vs MoE via cross-validation
+- Only if time budget allows
+
+### 3. Cross-Validation (When Needed)
+
+When multiple approaches are viable, auto-classify:
+
+```{r cv-example}
+# Splits data into k folds (default: 5)
+# Trains each approach on k-1 folds
+# Evaluates on held-out fold
+# Repeats for all folds
+# Selects approach with highest average accuracy
+```
+
+### 4. Trains Final Model
+
+```{r final-training}
+# Uses best configuration from CV
+# Trains on all available data
+# Uses 10% validation split for monitoring
+# Returns trained classifier
+```
+
+## Examples
+
+### Example 1: Emotion Detection (6 classes, 15K samples)
+
+```{r emotion-example}
+data(emotion_sample)
+
+clf <- auto_classify(
+  data = emotion_sample,
+  text_col = text,
+  label_col = label
+)
+
+# Auto-classify will:
+# 1. Detect: medium-sized multi-class dataset
+# 2. Test: frozen vs fine-tuned standard classifier
+# 3. Select: best via 5-fold CV
+# 4. Train: final model on all data
+```
+
+### Example 2: Sentiment Analysis (2 classes, 10K samples)
+
+```{r sentiment-example}
+data(sentiment_imdb_sample)
+
+clf <- auto_classify(
+  data = sentiment_imdb_sample,
+  text_col = text,
+  label_col = label
+)
+
+# Auto-classify will:
+# 1. Detect: medium-sized binary dataset
+# 2. Test: frozen vs fine-tuned
+# 3. Select: likely frozen (binary tasks are simpler)
+# 4. Train: final model
+```
+
+### Example 3: Large Dataset with Time Budget
+
+```{r time-budget}
+data(emotion_full)
+
+clf <- auto_classify(
+  data = emotion_full,
+  text_col = text,
+  label_col = label,
+  max_time_minutes = 15
+)
+
+# Auto-classify will:
+# 1. Respect time budget
+# 2. Skip expensive approaches if time is tight
+# 3. Stop CV early if needed
+# 4. Return best model trained within budget
+```
+
+## Customization Options
+
+While auto-classify works with no parameters, you can customize:
+
+### Cross-Validation Folds
+
+```{r cv-folds}
+clf <- auto_classify(
+  data = my_data,
+  text_col = text,
+  label_col = label,
+  cv_folds = 3  # Faster CV with fewer folds
+)
+```
+
+### Time Budget
+
+```{r time-budget-custom}
+clf <- auto_classify(
+  data = my_data,
+  text_col = text,
+  label_col = label,
+  max_time_minutes = 60  # Allow more time for larger search
+)
+```
+
+### Device Selection
+
+```{r device}
+clf <- auto_classify(
+  data = my_data,
+  text_col = text,
+  label_col = label,
+  device = "cuda"  # Force GPU (auto-detected by default)
+)
+```
+
+### Verbosity
+
+```{r verbose}
+clf <- auto_classify(
+  data = my_data,
+  text_col = text,
+  label_col = label,
+  verbose = FALSE  # Quiet mode
+)
+```
+
+## Understanding the Output
+
+Auto-classify prints progress:
+
+```
+══ Auto-Classify: Automatic Model Selection ═══════════════════
+
+ℹ Dataset: 15,000 samples, 6 classes
+ℹ Time budget: 30 minutes
+ℹ Cross-validation: 5 folds
+
+── Selected Strategy ────────────────────────────────────────
+
+✔ Approach: Standard Classifier with CV
+ℹ Reason: Medium dataset - test frozen vs fine-tuned
+ℹ Will test 2 configurations via CV
+
+── Cross-Validation Model Selection ─────────────────────────
+
+ℹ Testing: Standard frozen (1/2)
+✔ Standard frozen: 0.7823 ± 0.0145
+
+ℹ Testing: Standard fine-tuned (2/2)
+✔ Standard fine-tuned: 0.8012 ± 0.0132
+
+✔ Best configuration: Standard fine-tuned
+✔ CV accuracy: 0.8012
+
+── Training Final Model ─────────────────────────────────────
+
+ℹ Configuration: Standard fine-tuned
+[Training progress bars...]
+
+✔ Total time: 12.3 minutes
+✔ Model ready for predictions!
+```
+
+## When to Use Auto-Classify vs Manual
+
+**Use auto_classify when**:
+- Getting started with a new dataset
+- You want quick results without tuning
+- You're not sure which approach to use
+- Time for experimentation is limited
+- You want a reasonable baseline quickly
+
+**Use manual approach when**:
+- You know exactly what configuration you want
+- You need specific hyperparameters
+- You're doing research and need full control
+- You want to understand every decision
+- You're optimizing for specific metrics beyond accuracy
+
+## Decision Tree
+
+```
+Your Dataset
+     |
+     ├─ < 5K samples
+     │    └─> Frozen standard (fast, prevents overfitting)
+     |
+     ├─ 5-20K samples
+     │    └─> CV: frozen vs fine-tuned standard
+     |
+     ├─ 20-50K samples (or binary)
+     │    └─> Fine-tuned standard
+     |
+     └─ > 50K samples + 4+ classes
+          └─> CV: fine-tuned standard vs MoE
+              (if time budget allows)
+```
+
+## Comparison: Auto vs Manual
+
+### Auto-Classify
+
+```{r auto-approach}
+clf <- auto_classify(emotion_sample, text, label)
+```
+
+**Pros**:
+- One line of code
+- Automatic model selection
+- Cross-validation built-in
+- Smart defaults
+- Handles edge cases
+
+**Cons**:
+- Less control
+- Takes longer (CV overhead)
+- May not try all possibilities
+
+### Manual Approach
+
+```{r manual-approach}
+# You decide everything
+clf <- classifier(num_labels = 6, freeze_backbone = TRUE)
+
+clf <- clf |>
+  train(
+    emotion_sample,
+    text, label,
+    epochs = 5,
+    batch_size = 8,
+    learning_rate = 1e-3,
+    validation_split = 0.2
+  )
+```
+
+**Pros**:
+- Full control
+- Faster (no CV)
+- Specific configurations
+- Better for research
+
+**Cons**:
+- Need to know what to choose
+- Risk of suboptimal choices
+- More code to write
+
+## Best Practices
+
+1. **Start with auto_classify**: Get a baseline quickly
+2. **Check CV results**: See if multiple approaches were similar
+3. **Note the selected configuration**: Use it as starting point for manual tuning
+4. **Adjust time budget**: Based on your compute resources
+5. **Use manual for production**: Once you know what works
+
+## Advanced: Extracting Configuration
+
+You can see what auto_classify chose:
+
+```{r extract-config}
+clf <- auto_classify(emotion_sample, text, label)
+
+# Check the model type
+if ("moe_classifier" %in% class(clf)) {
+  cat("Selected: MoE\n")
+  cat("Experts:", clf$num_experts, "\n")
+} else {
+  cat("Selected: Standard\n")
+}
+
+cat("Freeze backbone:", clf$freeze_backbone, "\n")
+```
+
+## Troubleshooting
+
+### Out of Memory
+
+```{r oom}
+# Reduce CV folds
+clf <- auto_classify(data, text, label, cv_folds = 3)
+
+# Or set lower time budget (skips expensive approaches)
+clf <- auto_classify(data, text, label, max_time_minutes = 10)
+```
+
+### Taking Too Long
+
+```{r too-long}
+# Reduce time budget
+clf <- auto_classify(data, text, label, max_time_minutes = 15)
+
+# Reduce CV folds
+clf <- auto_classify(data, text, label, cv_folds = 3)
+```
+
+### Want More Control
+
+```{r more-control}
+# Use manual approach instead
+clf <- classifier(num_labels = 6, freeze_backbone = TRUE) |>
+  train(data, text, label, epochs = 5, learning_rate = 1e-3)
+```
+
+## Conclusion
+
+`auto_classify()` provides an easy entry point to text classification:
+
+- **No configuration needed**: Just point it at your data
+- **Automatic model selection**: Tests multiple approaches
+- **Cross-validation**: Picks the best configuration
+- **Production-ready**: Returns trained classifier
+
+**Workflow**:
+1. Use `auto_classify()` to get started quickly
+2. Review the selected configuration
+3. Use manual approach with those settings for production
+4. Fine-tune further if needed
+
+**Remember**: auto_classify is for convenience, not perfection. It gives you a strong baseline quickly, but manual tuning can still improve results.
+
+## See Also
+
+- `classifier()`: Manual standard classifier
+- `moe_classifier()`: Manual MoE classifier
+- Emotion Detection vignette: Detailed examples
+- Mixture of Experts vignette: Advanced techniques
