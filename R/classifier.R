@@ -9,7 +9,7 @@
 #' @param data Optional training data frame to infer num_labels from
 #' @param label_col Optional label column name (unquoted) to infer num_labels from
 #' @param model_name Model identifier from Hugging Face Hub
-#' @param device Device to use ("cpu" or "cuda")
+#' @param device Device to use ("cpu" or "cuda"). If NULL, automatically detects GPU availability.
 #' @return A classifier object with model and tokenizer
 #' @export
 #' @seealso \code{\link{train}}, \code{\link{predict}}
@@ -25,8 +25,14 @@ classifier <- function(
   data = NULL,
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
-  device = "cpu"
+  device = NULL
 ) {
+  # Auto-detect device if not specified
+  if (is.null(device)) {
+    torch <- reticulate::import("torch", delay_load = TRUE)
+    device <- if (torch$cuda$is_available()) "cuda" else "cpu"
+    cli::cli_alert_info("Using device: {device}")
+  }
   # Infer num_labels from data if not provided
   if (is.null(num_labels) && !is.null(data) && !is.null(rlang::enquo(label_col))) {
     label_col_quo <- rlang::enquo(label_col)
