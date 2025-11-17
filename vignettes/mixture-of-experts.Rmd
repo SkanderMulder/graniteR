@@ -1,0 +1,479 @@
+---
+title: "Mixture of Experts Classification with graniteR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Mixture of Experts Classification with graniteR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  fig.width = 10,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+This vignette demonstrates the Mixture of Experts (MoE) architecture for text classification in graniteR. MoE is an advanced technique that can improve performance on complex multi-class problems by using multiple specialized expert networks whose outputs are dynamically weighted based on the input.
+
+We compare the standard single-head classifier with the MoE approach on the emotion detection task (6 classes), showing when and why MoE can provide benefits.
+
+## Prerequisites
+
+Ensure you have installed graniteR and configured the Python environment:
+
+```bash
+./inst/bash/setup_python.sh
+Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+```
+
+GPU acceleration is strongly recommended for MoE models as they have more parameters to train.
+
+## Understanding Mixture of Experts
+
+### Architecture Overview
+
+A standard classifier uses a single feed-forward head:
+
+```
+Input → Backbone → Single Head → Output
+```
+
+A Mixture of Experts uses multiple specialized heads:
+
+```
+Input → Backbone → ┌ Expert 1 ┐
+                   ├ Expert 2 ├ → Weighted Sum → Output
+                   ├ Expert 3 ├
+                   └ Expert 4 ┘
+                        ↑
+                   Gating Network
+                   (learns weights)
+```
+
+### Key Components
+
+1. **Experts**: Multiple feed-forward networks that can specialize in different aspects
+2. **Gating Network**: Learns to weight experts dynamically per input
+3. **Load Balancing**: Encourages diverse expert usage to prevent collapse
+
+### When to Use MoE
+
+MoE is particularly effective when:
+- Multi-class problems with distinct classes (e.g., emotions, topics)
+- Sufficient training data for multiple experts
+- Classes have different characteristics that can be learned separately
+- Standard classifier plateaus in performance
+
+MoE may not help when:
+- Binary classification (too simple)
+- Very small datasets (risk of overfitting)
+- Classes are not clearly distinct
+
+## Loading the Dataset
+
+```{r load-data}
+library(graniteR)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+
+data(emotion_full, package = "graniteR")
+emotions <- emotion_full
+
+set.seed(42)
+n <- nrow(emotions)
+train_idx <- sample(n, size = floor(0.8 * n))
+
+train_data <- emotions[train_idx, ]
+test_data <- emotions[-train_idx, ]
+
+cat(sprintf("Training samples: %s\n", comma(nrow(train_data))))
+cat(sprintf("Testing samples: %s\n", comma(nrow(test_data))))
+```
+
+## Training Standard vs MoE Classifiers
+
+### Standard Single-Head Classifier
+
+```{r standard-classifier}
+clf_standard <- classifier(num_labels = 6)
+
+clf_standard <- clf_standard |>
+  train(
+    train_data,
+    text,
+    label,
+    epochs = 5,
+    batch_size = 8,
+    learning_rate = 1e-3,
+    validation_split = 0.2
+  )
+```
+
+### Mixture of Experts Classifier
+
+```{r moe-classifier}
+clf_moe <- moe_classifier(
+  num_labels = 6,
+  num_experts = 4,
+  freeze_backbone = TRUE,
+  dropout = 0.1
+)
+
+clf_moe <- clf_moe |>
+  train_moe(
+    train_data,
+    text,
+    label,
+    epochs = 5,
+    batch_size = 8,
+    learning_rate = 1e-3,
+    validation_split = 0.2
+  )
+```
+
+Note that MoE training shows additional loss components:
+- **cls**: Classification loss (cross-entropy)
+- **lb**: Load balancing loss (encourages expert diversity)
+
+## Making Predictions
+
+### Standard Predictions
+
+```{r standard-predictions}
+pred_standard <- predict(
+  clf_standard,
+  test_data,
+  text,
+  type = "class"
+)
+
+prob_standard <- predict(
+  clf_standard,
+  test_data,
+  text,
+  type = "prob"
+)
+```
+
+### MoE Predictions with Expert Weights
+
+```{r moe-predictions}
+pred_moe <- predict(
+  clf_moe,
+  test_data,
+  text,
+  type = "class"
+)
+
+prob_moe <- predict(
+  clf_moe,
+  test_data,
+  text,
+  type = "prob"
+)
+
+expert_weights <- predict(
+  clf_moe,
+  test_data,
+  text,
+  type = "expert_weights"
+)
+```
+
+The `expert_weights` output shows which experts were most active for each input, providing insights into expert specialization.
+
+## Performance Comparison
+
+```{r performance-comparison}
+emotion_names <- c("sadness", "joy", "love", "anger", "fear", "surprise")
+
+calculate_metrics <- function(predictions) {
+  accuracy <- mean(predictions$prediction == predictions$label)
+
+  per_class <- lapply(0:5, function(class_id) {
+    tp <- sum(predictions$prediction == class_id & predictions$label == class_id)
+    fp <- sum(predictions$prediction == class_id & predictions$label != class_id)
+    fn <- sum(predictions$prediction != class_id & predictions$label == class_id)
+
+    precision <- if (tp + fp > 0) tp / (tp + fp) else 0
+    recall <- if (tp + fn > 0) tp / (tp + fn) else 0
+    f1 <- if (precision + recall > 0) 2 * precision * recall / (precision + recall) else 0
+
+    data.frame(
+      emotion = emotion_names[class_id + 1],
+      precision = precision,
+      recall = recall,
+      f1 = f1
+    )
+  }) |> bind_rows()
+
+  list(
+    accuracy = accuracy,
+    per_class = per_class
+  )
+}
+
+metrics_standard <- calculate_metrics(pred_standard)
+metrics_moe <- calculate_metrics(pred_moe)
+
+comparison <- data.frame(
+  Model = c("Standard", "MoE"),
+  Accuracy = c(metrics_standard$accuracy, metrics_moe$accuracy),
+  `Avg F1` = c(
+    mean(metrics_standard$per_class$f1),
+    mean(metrics_moe$per_class$f1)
+  )
+)
+
+cat("Overall Performance Comparison:\n\n")
+comparison |>
+  mutate(across(where(is.numeric), ~sprintf("%.4f", .))) |>
+  knitr::kable()
+```
+
+```{r per-class-comparison, fig.height=7}
+per_class_comparison <- bind_rows(
+  metrics_standard$per_class |> mutate(Model = "Standard"),
+  metrics_moe$per_class |> mutate(Model = "MoE")
+) |>
+  pivot_longer(cols = c(precision, recall, f1),
+               names_to = "metric",
+               values_to = "value")
+
+ggplot(per_class_comparison, aes(x = emotion, y = value, fill = Model)) +
+  geom_col(position = "dodge", width = 0.7) +
+  facet_wrap(~metric, ncol = 1) +
+  scale_fill_manual(values = c("Standard" = "#3498db", "MoE" = "#e74c3c")) +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Per-Class Performance: Standard vs MoE",
+    x = "",
+    y = "Score"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold")
+  )
+```
+
+## Analyzing Expert Specialization
+
+One key advantage of MoE is that we can analyze which experts specialize in which classes:
+
+```{r expert-specialization, fig.height=6}
+expert_analysis <- expert_weights |>
+  mutate(
+    true_emotion = emotion_names[test_data$label[1:n()] + 1],
+    primary_expert = max.col(select(expert_weights, starts_with("expert_"))) - 1
+  ) |>
+  select(true_emotion, primary_expert, starts_with("expert_"))
+
+expert_class_matrix <- expert_analysis |>
+  count(true_emotion, primary_expert) |>
+  complete(true_emotion = emotion_names, primary_expert = 0:3, fill = list(n = 0)) |>
+  mutate(primary_expert = paste0("Expert ", primary_expert))
+
+ggplot(expert_class_matrix, aes(x = true_emotion, y = primary_expert, fill = n)) +
+  geom_tile(color = "white", size = 1) +
+  geom_text(aes(label = n), size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#f0f0f0", high = "#3498db", labels = comma) +
+  labs(
+    title = "Expert Specialization by Emotion Class",
+    subtitle = "Shows which expert is most active for each emotion",
+    x = "True Emotion",
+    y = "",
+    fill = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+This heatmap shows if experts have learned to specialize (e.g., Expert 1 handles joy, Expert 2 handles sadness).
+
+### Average Expert Weights by Class
+
+```{r expert-weights-by-class, fig.height=6}
+avg_expert_weights <- expert_analysis |>
+  group_by(true_emotion) |>
+  summarise(across(starts_with("expert_"), mean)) |>
+  pivot_longer(cols = starts_with("expert_"),
+               names_to = "expert",
+               values_to = "avg_weight") |>
+  mutate(expert = gsub("expert_", "Expert ", expert))
+
+ggplot(avg_expert_weights, aes(x = true_emotion, y = avg_weight, fill = expert)) +
+  geom_col(position = "dodge") +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Average Expert Activation by Emotion",
+    subtitle = "Higher weights indicate expert specialization",
+    x = "",
+    y = "Average Weight",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top"
+  )
+```
+
+## Confidence and Uncertainty Analysis
+
+```{r confidence-comparison, fig.height=6}
+confidence_standard <- prob_standard |>
+  mutate(
+    max_prob = pmax(prob_1, prob_2, prob_3, prob_4, prob_5, prob_6),
+    predicted_class = max.col(cbind(prob_1, prob_2, prob_3, prob_4, prob_5, prob_6)) - 1,
+    correct = predicted_class == test_data$label[1:n()],
+    model = "Standard"
+  ) |>
+  select(max_prob, correct, model)
+
+confidence_moe <- prob_moe |>
+  mutate(
+    max_prob = pmax(prob_1, prob_2, prob_3, prob_4, prob_5, prob_6),
+    predicted_class = max.col(cbind(prob_1, prob_2, prob_3, prob_4, prob_5, prob_6)) - 1,
+    correct = predicted_class == test_data$label[1:n()],
+    model = "MoE"
+  ) |>
+  select(max_prob, correct, model)
+
+confidence_comparison <- bind_rows(confidence_standard, confidence_moe)
+
+ggplot(confidence_comparison, aes(x = max_prob, fill = model)) +
+  geom_histogram(bins = 30, alpha = 0.7, position = "identity") +
+  facet_wrap(~correct, ncol = 1, labeller = labeller(correct = c("FALSE" = "Incorrect", "TRUE" = "Correct"))) +
+  scale_fill_manual(values = c("Standard" = "#3498db", "MoE" = "#e74c3c")) +
+  labs(
+    title = "Confidence Distribution: Standard vs MoE",
+    x = "Maximum Probability (Confidence)",
+    y = "Count",
+    fill = "Model"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top",
+    strip.text = element_text(face = "bold")
+  )
+```
+
+MoE models often show more calibrated confidence (better separation between correct and incorrect predictions).
+
+## Example: Inspecting Expert Decisions
+
+Let's look at specific examples to understand expert behavior:
+
+```{r expert-examples}
+example_analysis <- expert_weights |>
+  slice_sample(n = 10) |>
+  mutate(
+    text_preview = substr(text, 1, 60),
+    true_emotion = emotion_names[test_data$label[1:n()] + 1],
+    pred_emotion = emotion_names[pred_moe$prediction[1:n()] + 1],
+    primary_expert = paste0("Expert ", max.col(select(expert_weights, starts_with("expert_"))) - 1),
+    correct = true_emotion == pred_emotion
+  ) |>
+  select(text_preview, true_emotion, pred_emotion, primary_expert, correct)
+
+cat("Sample predictions with expert assignments:\n\n")
+example_analysis |>
+  knitr::kable(col.names = c("Text", "True", "Predicted", "Primary Expert", "Correct"))
+```
+
+## Training Considerations
+
+### Hyperparameter Tuning for MoE
+
+```{r hyperparameters, eval=FALSE}
+clf_moe_tuned <- moe_classifier(
+  num_labels = 6,
+  num_experts = 6,
+  freeze_backbone = TRUE,
+  hidden_dim = 512,
+  dropout = 0.2
+)
+```
+
+**Key hyperparameters:**
+- `num_experts`: More experts = more capacity but risk of overfitting (typical: 3-6)
+- `hidden_dim`: Expert network size (default: backbone_size/2)
+- `dropout`: Regularization (0.1-0.3 typical)
+- `freeze_backbone`: Usually TRUE for efficiency; FALSE for maximum performance
+
+### Computational Costs
+
+MoE models have approximately `num_experts` times more parameters in the head:
+
+```{r computational-comparison}
+cat("Parameter comparison:\n")
+cat(sprintf("Standard classifier: ~2-4 layers in head\n"))
+cat(sprintf("MoE classifier with 4 experts: ~8-16 layers in heads + gating network\n"))
+cat(sprintf("\nTraining time: MoE is typically 1.2-1.5x slower than standard\n"))
+cat(sprintf("Inference time: Similar (gating adds minimal overhead)\n"))
+```
+
+## Best Practices
+
+1. **Start Simple**: Try standard classifier first to establish baseline
+2. **Use MoE for Multi-Class**: Most effective with 4+ classes
+3. **Monitor Load Balancing**: Check if experts are being used (not collapsed to one)
+4. **Analyze Specialization**: Use expert weights to understand what model learned
+5. **Regularization**: Use dropout to prevent overfitting with multiple experts
+6. **Expert Count**: Start with num_experts ≈ num_classes / 2
+
+## When MoE Helps Most
+
+Based on empirical results, MoE provides the largest gains when:
+
+1. **Distinct Classes**: Classes have clear semantic differences (emotions vs. fine-grained sentiment)
+2. **Sufficient Data**: At least 5,000-10,000 samples for multi-class tasks
+3. **Class Imbalance**: Different experts can specialize in rare vs. common classes
+4. **Complex Boundaries**: When single head struggles to separate all classes
+
+## Conclusion
+
+Mixture of Experts is a powerful technique for improving multi-class text classification:
+
+**Advantages:**
+- Can improve accuracy over standard single-head classifiers
+- Provides interpretability through expert specialization
+- Handles class imbalance naturally through specialization
+- More expressive model capacity
+
+**Disadvantages:**
+- More parameters to train (risk of overfitting on small data)
+- Slightly slower training
+- Requires careful hyperparameter tuning
+- May not help for binary or simple tasks
+
+**Key Takeaway:** Use MoE when standard classifiers plateau and you have sufficient data for the added model capacity.
+
+## References
+
+- Mixture of Experts: https://arxiv.org/abs/1701.06538
+- Sparse MoE: https://arxiv.org/abs/2101.03961
+- Granite Embedding R2 Models: https://arxiv.org/html/2508.21085v1
+- IBM Granite Models: https://huggingface.co/ibm-granite

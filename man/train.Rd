@@ -30,7 +30,8 @@ Can be integer, character, or factor.}
 
 \item{batch_size}{Batch size for training}
 
-\item{learning_rate}{Learning rate for optimizer}
+\item{learning_rate}{Learning rate for optimizer (typically higher than full
+fine-tuning since only the head is trained)}
 
 \item{validation_split}{Fraction of data to use for validation}
 
@@ -43,6 +44,20 @@ Updated classifier object with trained model
 Trains a text classifier on labeled data. Supports integer, character, and
 factor labels. Character and factor labels are automatically converted to
 integers (alphabetically for characters, by factor levels for factors).
+}
+\details{
+Only the classification head is trained while the base model remains frozen.
+This is efficient and effective for most classification tasks, requiring less
+data and training time compared to full fine-tuning.
+
+
+The training process only updates the classification head parameters while
+keeping the pretrained encoder frozen. This typically requires:
+\itemize{
+  \item Higher learning rates (2e-5 to 1e-3) than full fine-tuning
+  \item Fewer epochs (3-10 typically sufficient)
+  \item Less training data to avoid overfitting
+}
 }
 \examples{
 \dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}

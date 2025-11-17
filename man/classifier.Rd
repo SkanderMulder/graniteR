@@ -9,7 +9,7 @@ classifier(
   data = NULL,
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
-  device = "cpu"
+  device = NULL
 )
 }
 \arguments{
@@ -22,7 +22,7 @@ If NULL and data is provided, will be inferred from unique labels.}
 
 \item{model_name}{Model identifier from Hugging Face Hub}
 
-\item{device}{Device to use ("cpu" or "cuda")}
+\item{device}{Device to use ("cpu" or "cuda"). If NULL, automatically detects GPU availability.}
 }
 \value{
 A classifier object with model and tokenizer
@@ -31,6 +31,21 @@ A classifier object with model and tokenizer
 Creates a text classifier using transformer encoder models. Supports both
 binary classification (2 classes) and multi-class classification (3+ classes).
 The number of classes can be specified explicitly or inferred from training data.
+}
+\details{
+The pretrained base model is frozen and only the classification head is trained.
+This approach is more efficient and prevents overfitting on smaller datasets
+while leveraging the pretrained representations.
+
+
+The classifier uses a frozen pretrained model with only the classification head
+being trainable. This provides several advantages:
+\itemize{
+  \item Faster training (fewer parameters to update)
+  \item Lower memory requirements
+  \item Better generalization on small datasets
+  \item Preserves pretrained knowledge
+}
 }
 \examples{
 \dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
