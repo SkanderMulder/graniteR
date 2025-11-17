@@ -188,23 +188,26 @@ train <- function(
   total_batches <- ceiling(length(train_texts) / batch_size) * epochs
 
   batch_times <- numeric()
+  prev_loss <- NULL
+  prev_accuracy <- NULL
 
-  for (epoch in seq_len(epochs)) {
-    total_loss <- 0
-    n_batches <- ceiling(length(train_texts) / batch_size)
-    epoch_start_time <- Sys.time()
-    avg_loss <- 0
-    eta_str <- "calculating..."
+  tryCatch({
+    for (epoch in seq_len(epochs)) {
+      total_loss <- 0
+      n_batches <- ceiling(length(train_texts) / batch_size)
+      epoch_start_time <- Sys.time()
+      avg_loss <- 0
+      eta_str <- "calculating..."
 
-    if (verbose) {
-      cli::cli_progress_bar(
-        format = "Epoch {epoch}/{epochs} | Batch {cli::pb_current}/{cli::pb_total} | Loss: {sprintf('%.4f', avg_loss)} | ETA: {eta_str}",
-        total = n_batches,
-        clear = FALSE
-      )
-    }
+      if (verbose) {
+        cli::cli_progress_bar(
+          format = "Epoch {epoch}/{epochs} | Batch {cli::pb_current}/{cli::pb_total} | Loss: {sprintf('%.4f', avg_loss)} | ETA: {eta_str}",
+          total = n_batches,
+          clear = FALSE
+        )
+      }
 
-    for (i in seq_len(n_batches)) {
+      for (i in seq_len(n_batches)) {
       batch_start <- Sys.time()
       start_idx <- (i - 1) * batch_size + 1
       end_idx <- min(i * batch_size, length(train_texts))
@@ -254,37 +257,77 @@ train <- function(
       }
     }
 
-    if (verbose) {
-      cli::cli_progress_done()
-    }
+      if (verbose) {
+        cli::cli_progress_done()
+      }
 
-    if (verbose) {
-      epoch_time <- as.numeric(difftime(Sys.time(), epoch_start_time, units = "secs"))
-      if (length(val_texts) > 0) {
-        val_accuracy <- evaluate_classifier(
-          model, tokenizer, val_texts, val_labels,
-          batch_size, classifier$model$device
-        )
-        cli::cli_alert_info("Epoch {epoch}/{epochs} - Loss: {round(total_loss / n_batches, 4)} - Val Accuracy: {round(val_accuracy, 4)} - Time: {round(epoch_time, 1)}s")
-      } else {
-        cli::cli_alert_info("Epoch {epoch}/{epochs} - Loss: {round(total_loss / n_batches, 4)} - Time: {round(epoch_time, 1)}s")
+      if (verbose) {
+        epoch_time <- as.numeric(difftime(Sys.time(), epoch_start_time, units = "secs"))
+        current_loss <- total_loss / n_batches
+
+        if (length(val_texts) > 0) {
+          val_accuracy <- evaluate_classifier(
+            model, tokenizer, val_texts, val_labels,
+            batch_size, classifier$model$device
+          )
+
+          loss_delta <- if (!is.null(prev_loss)) {
+            delta_val <- ((prev_loss - current_loss) / prev_loss) * 100
+            sprintf(" (%+.1f%%)", delta_val)
+          } else {
+            ""
+          }
+
+          acc_delta <- if (!is.null(prev_accuracy)) {
+            delta_val <- (val_accuracy - prev_accuracy) * 100
+            sprintf(" (%+.1f%%)", delta_val)
+          } else {
+            ""
+          }
+
+          cli::cli_alert_info("Epoch {epoch}/{epochs} - Loss: {round(current_loss, 4)}{loss_delta} - Val Accuracy: {round(val_accuracy, 4)}{acc_delta} - Time: {round(epoch_time, 1)}s")
+
+          prev_loss <- current_loss
+          prev_accuracy <- val_accuracy
+        } else {
+          loss_delta <- if (!is.null(prev_loss)) {
+            delta_val <- ((prev_loss - current_loss) / prev_loss) * 100
+            sprintf(" (%+.1f%%)", delta_val)
+          } else {
+            ""
+          }
+
+          cli::cli_alert_info("Epoch {epoch}/{epochs} - Loss: {round(current_loss, 4)}{loss_delta} - Time: {round(epoch_time, 1)}s")
+          prev_loss <- current_loss
+        }
       }
     }
-  }
 
-  if (verbose) {
-    total_time <- as.numeric(difftime(Sys.time(), training_start_time, units = "secs"))
-    time_str <- if (total_time < 60) {
-      sprintf("%.1fs", total_time)
-    } else if (total_time < 3600) {
-      sprintf("%.1fm", total_time / 60)
-    } else {
-      sprintf("%.2fh", total_time / 3600)
+    if (verbose) {
+      total_time <- as.numeric(difftime(Sys.time(), training_start_time, units = "secs"))
+      time_str <- if (total_time < 60) {
+        sprintf("%.1fs", total_time)
+      } else if (total_time < 3600) {
+        sprintf("%.1fm", total_time / 60)
+      } else {
+        sprintf("%.2fh", total_time / 3600)
+      }
+      cli::cli_alert_success("Training complete in {time_str}")
     }
-    cli::cli_alert_success("Training complete in {time_str}")
-  }
 
-  classifier$is_trained <- TRUE
+    classifier$is_trained <- TRUE
+  }, interrupt = function(e) {
+    if (verbose) {
+      cli::cli_alert_warning("Training interrupted by user")
+    }
+    classifier$is_trained <- TRUE
+  }, error = function(e) {
+    if (verbose) {
+      cli::cli_alert_danger("Training failed: {e$message}")
+    }
+    classifier$is_trained <- FALSE
+  })
+
   classifier
 }
 
