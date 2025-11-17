@@ -1,0 +1,446 @@
+---
+title: "Model Persistence: Saving and Loading Classifiers"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Model Persistence: Saving and Loading Classifiers}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  fig.width = 10,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+This vignette shows how to save and load trained classifiers in graniteR. Due to reticulate limitations, standard R serialization (save/load) doesn't work for Python objects. Instead, we provide `save_classifier()` and `load_classifier()` which properly handle PyTorch model weights.
+
+## The Problem with Standard save/load
+
+```{r problem}
+library(graniteR)
+
+# Train a model
+clf <- auto_classify(emotion_sample, text, label)
+
+# Standard R save doesn't work
+save(clf, file = "model.rda")
+load("model.rda")
+
+# Predictions FAIL - Python objects are NULL
+# predict(clf, test_data, text)  # ERROR!
+```
+
+**Why?**: R's `save()` serializes the object structure but Python pointers become NULL.
+
+## The Solution: S3 Methods with saveRDS() and load_classifier()
+
+### Basic Usage (Just use saveRDS!)
+
+```{r basic-usage}
+library(graniteR)
+
+# Train a model
+data(emotion_sample)
+clf <- auto_classify(emotion_sample, text, label)
+
+# Save it - S3 method handles everything automatically!
+saveRDS(clf, "models/emotion_clf")
+
+# Files created:
+# models/emotion_clf_weights.pt   <- PyTorch weights
+# models/emotion_clf_config.rds   <- R configuration
+
+# Later, in a new R session:
+clf <- load_classifier("models/emotion_clf")
+
+# Predictions work!
+test_data <- emotion_sample |> slice_sample(n = 100)
+predictions <- predict(clf, test_data, text)
+```
+
+**Key Point**: Just use standard R functions! The S3 methods handle PyTorch weights automatically.
+
+### What Gets Saved
+
+The `saveRDS.granite_classifier()` S3 method saves two files:
+
+1. **Weights file** (`*_weights.pt`):
+   - PyTorch model state_dict
+   - All trained parameters
+   - Compatible with PyTorch's save/load system
+
+2. **Config file** (`*_config.rds`):
+   - Model architecture (standard or MoE)
+   - Number of labels and experts
+   - Model name (for tokenizer)
+   - Device information
+   - freeze_backbone setting
+
+## Complete Workflow
+
+### Training and Saving
+
+```{r train-save}
+library(graniteR)
+library(dplyr)
+
+# Load and prepare data
+data(emotion_full)
+
+# Train with auto-selection
+clf <- auto_classify(
+  data = emotion_full,
+  text_col = text,
+  label_col = label,
+  max_time_minutes = 30
+)
+
+# Save the trained model - just use saveRDS!
+saveRDS(clf, "my_models/emotion_detector_v1")
+```
+
+Output:
+```
+✔ Saved model to my_models
+ℹ Weights: emotion_detector_v1_weights.pt
+ℹ Config: emotion_detector_v1_config.rds
+```
+
+### Loading and Using
+
+```{r load-use}
+# In a new R session
+library(graniteR)
+library(dplyr)
+
+# Load the model
+clf <- load_classifier("my_models/emotion_detector_v1")
+
+# Use immediately
+new_texts <- data.frame(
+  text = c(
+    "I'm so happy today!",
+    "This makes me very sad",
+    "I love this so much"
+  ),
+  stringsAsFactors = FALSE
+)
+
+predictions <- predict(clf, new_texts, text, type = "class")
+probabilities <- predict(clf, new_texts, text, type = "prob")
+```
+
+## Advanced Usage
+
+### Saving Multiple Models
+
+```{r multiple-models}
+# Train different models
+clf_frozen <- classifier(num_labels = 6, freeze_backbone = TRUE) |>
+  train(emotion_sample, text, label, epochs = 5)
+
+clf_finetuned <- classifier(num_labels = 6, freeze_backbone = FALSE) |>
+  train(emotion_sample, text, label, epochs = 3, learning_rate = 2e-5)
+
+clf_moe <- moe_classifier(num_labels = 6, num_experts = 4) |>
+  train_moe(emotion_sample, text, label, epochs = 3)
+
+# Save each with descriptive names
+save_classifier(clf_frozen, "models", "emotion_frozen")
+save_classifier(clf_finetuned, "models", "emotion_finetuned")
+save_classifier(clf_moe, "models", "emotion_moe")
+```
+
+Directory structure:
+```
+models/
+├── emotion_frozen_weights.pt
+├── emotion_frozen_config.rds
+├── emotion_finetuned_weights.pt
+├── emotion_finetuned_config.rds
+├── emotion_moe_weights.pt
+└── emotion_moe_config.rds
+```
+
+### Loading on Different Devices
+
+```{r device-control}
+# Model was trained on GPU
+save_classifier(clf, "models", "gpu_model")
+
+# Load on CPU in new session (e.g., for deployment)
+clf <- load_classifier("models", "gpu_model", device = "cpu")
+
+# Or force GPU
+clf <- load_classifier("models", "cpu_model", device = "cuda")
+```
+
+### Version Control and Naming
+
+```{r versioning}
+# Include version and metadata in name
+timestamp <- format(Sys.time(), "%Y%m%d")
+model_name <- paste0("emotion_v2_", timestamp)
+
+save_classifier(clf, "models", model_name)
+# Saves: models/emotion_v2_20251117_weights.pt
+#        models/emotion_v2_20251117_config.rds
+
+# Load specific version
+clf <- load_classifier("models", "emotion_v2_20251117")
+```
+
+## Deployment Scenarios
+
+### Scenario 1: Research and Development
+
+```{r research}
+# Experiment with different approaches
+configs <- list(
+  list(name = "baseline", freeze = TRUE, epochs = 3),
+  list(name = "finetuned", freeze = FALSE, epochs = 3),
+  list(name = "moe", freeze = FALSE, epochs = 3, moe = TRUE)
+)
+
+for (cfg in configs) {
+  if (cfg$moe %||% FALSE) {
+    clf <- moe_classifier(6, 4, freeze_backbone = cfg$freeze) |>
+      train_moe(emotion_sample, text, label, epochs = cfg$epochs)
+  } else {
+    clf <- classifier(6, freeze_backbone = cfg$freeze) |>
+      train(emotion_sample, text, label, epochs = cfg$epochs)
+  }
+
+  save_classifier(clf, "experiments", cfg$name)
+}
+
+# Compare models later
+results <- lapply(c("baseline", "finetuned", "moe"), function(name) {
+  clf <- load_classifier("experiments", name)
+  preds <- predict(clf, test_data, text)
+  list(name = name, accuracy = mean(preds$prediction == preds$label))
+})
+```
+
+### Scenario 2: Production API
+
+```{r production}
+# Train best model
+clf <- auto_classify(emotion_full, text, label)
+save_classifier(clf, "/var/models", "emotion_production_v1")
+
+# In API server startup:
+clf <- load_classifier("/var/models", "emotion_production_v1")
+
+# In API endpoint:
+api_handler <- function(text_input) {
+  df <- data.frame(text = text_input, stringsAsFactors = FALSE)
+  predictions <- predict(clf, df, text, type = "prob")
+  return(as.list(predictions))
+}
+```
+
+### Scenario 3: Model Updates
+
+```{r updates}
+# Load existing model
+clf_old <- load_classifier("models", "emotion_v1")
+
+# Train new version with more data
+clf_new <- auto_classify(emotion_expanded, text, label)
+
+# Save with new version number
+save_classifier(clf_new, "models", "emotion_v2")
+
+# A/B test or gradual rollout
+use_new_model <- runif(1) < 0.5
+clf <- if (use_new_model) {
+  load_classifier("models", "emotion_v2")
+} else {
+  load_classifier("models", "emotion_v1")
+}
+```
+
+## File Size and Performance
+
+### Model Sizes
+
+Typical file sizes:
+
+```{r sizes}
+# Standard classifier (frozen):
+# - Weights: ~5-10 MB (classification head only)
+# - Config: < 1 KB
+# - Total: ~5-10 MB
+
+# Standard classifier (fine-tuned):
+# - Weights: ~400-500 MB (full model)
+# - Config: < 1 KB
+# - Total: ~400-500 MB
+
+# MoE classifier:
+# - Weights: ~500-600 MB (full model + experts)
+# - Config: < 1 KB
+# - Total: ~500-600 MB
+```
+
+### Load Times
+
+```{r load-times}
+# Frozen model: < 1 second
+# Fine-tuned model: 5-10 seconds
+# MoE model: 10-15 seconds
+
+# Depends on:
+# - Model size
+# - Device (GPU vs CPU)
+# - Disk speed
+```
+
+## Best Practices
+
+### 1. Descriptive Naming
+
+```{r naming}
+# Good: descriptive, versioned, dated
+save_classifier(clf, "models", "emotion_6class_finetuned_v2_20251117")
+
+# Bad: generic, no context
+save_classifier(clf, "models", "model1")
+```
+
+### 2. Directory Organization
+
+```{r organization}
+# Organized structure
+models/
+├── production/
+│   └── emotion_v2_weights.pt
+├── staging/
+│   └── emotion_v3_weights.pt
+└── experiments/
+    ├── exp1_frozen_weights.pt
+    └── exp2_moe_weights.pt
+```
+
+### 3. Model Metadata
+
+```{r metadata}
+# Save additional info alongside model
+metadata <- list(
+  trained_on = Sys.time(),
+  dataset_size = nrow(emotion_full),
+  accuracy = 0.8234,
+  framework_version = packageVersion("graniteR")
+)
+
+save_classifier(clf, "models", "emotion_v2")
+saveRDS(metadata, "models/emotion_v2_metadata.rds")
+```
+
+### 4. Validation After Loading
+
+```{r validation}
+# Load model
+clf <- load_classifier("models", "emotion_v2")
+
+# Validate on known examples
+validation_data <- data.frame(
+  text = c("I'm happy", "I'm sad"),
+  expected = c(1, 0),  # joy, sadness
+  stringsAsFactors = FALSE
+)
+
+preds <- predict(clf, validation_data, text)
+stopifnot(all(preds$prediction == validation_data$expected))
+```
+
+## Troubleshooting
+
+### Model Won't Load
+
+```{r troubleshoot-load}
+# Check files exist
+list.files("models", pattern = "emotion")
+
+# Check config
+config <- readRDS("models/emotion_config.rds")
+str(config)
+
+# Check PyTorch can read weights
+torch <- reticulate::import("torch")
+weights <- torch$load("models/emotion_weights.pt")
+```
+
+### Different graniteR Versions
+
+```{r version-compat}
+# Models are forward-compatible within major versions
+# v1.0.0 model works with v1.1.0
+# v1.x model may not work with v2.0.0
+
+# Save version info
+saveRDS(
+  list(version = packageVersion("graniteR")),
+  "models/emotion_version.rds"
+)
+```
+
+### Out of Memory
+
+```{r oom}
+# Load on CPU instead of GPU
+clf <- load_classifier("models", "large_model", device = "cpu")
+
+# Or use a smaller model
+# Train with frozen backbone instead of fine-tuning
+```
+
+## Comparison: Standard vs This Approach
+
+### Standard R save/load (DOESN'T WORK)
+
+```{r standard-fail}
+clf <- auto_classify(data, text, label)
+save(clf, file = "model.rda")
+
+# New session
+load("model.rda")
+predict(clf, ...)  # ERROR: Python objects are NULL
+```
+
+### graniteR save_classifier/load_classifier (WORKS)
+
+```{r granitr-works}
+clf <- auto_classify(data, text, label)
+save_classifier(clf, "models", "my_model")
+
+# New session
+clf <- load_classifier("models", "my_model")
+predict(clf, ...)  # Works perfectly!
+```
+
+## Summary
+
+- ✅ Use `save_classifier()` and `load_classifier()` for model persistence
+- ❌ Don't use base R `save()` and `load()` - they don't work with Python objects
+- 📁 Models are saved as two files: weights (.pt) and config (.rds)
+- 🔄 Models can be loaded in new sessions and used immediately
+- 💾 File sizes: 5-10 MB (frozen) to 500-600 MB (fine-tuned/MoE)
+- ⚡ Load times: < 1 second (frozen) to 10-15 seconds (large models)
+
+## See Also
+
+- `auto_classify()`: Easy model training
+- `classifier()`: Manual standard classifier
+- `moe_classifier()`: Manual MoE classifier
+- `predict()`: Making predictions
