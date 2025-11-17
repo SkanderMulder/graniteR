@@ -3,12 +3,12 @@
 \docType{data}
 \name{clf_moe_example}
 \alias{clf_moe_example}
-\title{Example Trained MoE Classifier (Structure Reference)}
+\title{Example Trained MoE Classifier (Structure Reference Only - NOT for Inference)}
 \format{
 A trained moe_classifier object with the following components:
 \describe{
-  \item{model}{Python model object (pointer not portable across sessions)}
-  \item{tokenizer}{Tokenizer object with model_name}
+  \item{model}{Python model object (pointer is NULL - not usable)}
+  \item{tokenizer}{Tokenizer object (pointer is NULL - not usable)}
   \item{num_labels}{Integer. Number of output classes (6 for emotion detection)}
   \item{num_experts}{Integer. Number of expert networks (4)}
   \item{device}{Character. Device used for training ("cuda" or "cpu")}
@@ -21,18 +21,36 @@ clf_moe_example
 }
 \description{
 An example Mixture of Experts classifier object showing the structure of a
-trained model. This is provided as a reference for understanding the object
+trained model. This is provided ONLY as a reference for understanding the object
 structure returned by \code{moe_classifier()} and \code{auto_classify()}.
 }
 \details{
-**Important Notes**:
+**WARNING: This model CANNOT be used for predictions. The Python objects are null.**
+
+
+**CRITICAL - NOT USABLE FOR INFERENCE**:
 \itemize{
-  \item This model contains Python object pointers that are not portable
-  \item The model cannot be used for inference after loading from .rda
-  \item This is purely for reference and understanding object structure
-  \item For actual inference, train a new model using:
-    - \code{auto_classify()} for automatic selection
-    - \code{moe_classifier()} for manual configuration
+  \item The Python model and tokenizer pointers are NULL after saving/loading
+  \item \code{predict()} will fail with "no applicable method" error
+  \item This is a fundamental limitation of R-Python integration via reticulate
+  \item Python objects cannot be serialized and restored across R sessions
+  \item This object is kept ONLY to show the expected structure
+}
+
+**Why This Exists**:
+\itemize{
+  \item Shows what structure to expect from \code{moe_classifier()} training
+  \item Demonstrates the object components and their types
+  \item Helps users understand return values
+  \item Useful for debugging and development
+}
+
+**For Actual Inference - Train a New Model**:
+\itemize{
+  \item Use \code{auto_classify()} for automatic selection
+  \item Use \code{moe_classifier()} for manual configuration
+  \item Models must be trained in the same R session where they are used
+  \item Cannot save and reload models for later use (reticulate limitation)
 }
 
 **Model Configuration**:
@@ -58,20 +76,37 @@ List of 7
 }
 \examples{
 \dontrun{
-# Load the example (structure only, not usable for inference)
+# Load the example (STRUCTURE REFERENCE ONLY)
 data(clf_moe_example)
 
-# Inspect structure
+# Inspect structure - this is what a trained model looks like
 str(clf_moe_example)
 class(clf_moe_example)
 
-# To create a working model, train a new one:
-data(emotion_sample)
-clf <- auto_classify(emotion_sample, text, label)
+# Check metadata (these work)
+clf_moe_example$num_labels   # 6
+clf_moe_example$num_experts  # 4
+clf_moe_example$is_trained   # TRUE
 
-# Or manually:
+# WARNING: Predictions will NOT work
+# predict(clf_moe_example, ...) # ERROR: no applicable method
+
+# To create a WORKING model, train a new one in the same session:
+data(emotion_sample)
+
+# Option 1: Automatic (recommended)
+clf <- auto_classify(emotion_sample, text, label)
+predictions <- predict(clf, emotion_sample, text)  # This works!
+
+# Option 2: Manual MoE
 clf <- moe_classifier(num_labels = 6, num_experts = 4) |>
   train_moe(emotion_sample, text, label, epochs = 3)
+predictions <- predict(clf, emotion_sample, text)  # This works!
+
+# Key limitation: Models CANNOT be saved and reloaded for inference
+# save(clf, file = "my_model.rda")  # Saves structure
+# load("my_model.rda")              # Loads structure
+# predict(clf, ...)                 # FAILS - Python objects are NULL
 }
 }
 \seealso{
