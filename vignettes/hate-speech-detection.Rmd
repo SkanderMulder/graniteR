@@ -1,0 +1,586 @@
+---
+title: "Hate Speech Detection with graniteR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Hate Speech Detection with graniteR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE,
+  fig.width = 10,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+This vignette demonstrates using graniteR for hate speech detection in text data. We use the measuring-hate-speech dataset from UC Berkeley's D-Lab, which contains text samples from social media and online platforms labeled for hate speech content.
+
+The dataset includes 135,556 labeled examples, making it suitable for training robust hate speech classifiers. This use case illustrates graniteR's capabilities in:
+
+- Binary classification for content moderation
+- Working with sensitive and challenging text data
+- Fine-tuning transformer models for safety applications
+- Handling imbalanced datasets common in safety tasks
+
+## Prerequisites
+
+Before proceeding, ensure you have installed graniteR and its Python dependencies using UV:
+
+```bash
+# From the graniteR package directory
+./inst/bash/setup_python.sh
+
+# Then in R, configure the Python environment
+Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+```
+
+UV provides fast dependency installation (1-2 minutes). See the "Getting Started" vignette for detailed installation instructions.
+
+For this classification task, GPU acceleration is recommended but not required. If you have a CUDA-capable GPU, the training will be significantly faster.
+
+## Understanding the Task
+
+Hate speech detection is the task of identifying content that attacks or uses discriminatory language against individuals or groups based on attributes such as race, ethnicity, gender, religion, or other characteristics.
+
+This is a critical application for:
+- Social media content moderation
+- Online community safety
+- Platform policy enforcement
+- Research on online toxicity
+- Automated flagging systems
+
+**Important Note**: This vignette focuses on the technical implementation of hate speech detection models. Actual deployment requires careful consideration of ethical implications, bias, false positives/negatives, and human review processes.
+
+## Loading the Dataset
+
+```{r load-data}
+library(graniteR)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(scales)
+
+data(hate_speech_full, package = "graniteR")
+texts <- hate_speech_full
+
+glimpse(texts)
+```
+
+The dataset contains:
+- `text`: The text content
+- `label`: Binary label (0 = non-hate, 1 = hate)
+- `label_name`: Label name (non-hate or hate)
+
+## Exploratory Data Analysis
+
+### Class Distribution
+
+```{r class-distribution, fig.height=5}
+class_stats <- texts |>
+  count(label_name) |>
+  mutate(
+    percentage = n / sum(n) * 100,
+    label_text = sprintf("%s\n%s (%.1f%%)", label_name, comma(n), percentage)
+  )
+
+ggplot(class_stats, aes(x = "", y = n, fill = label_name)) +
+  geom_col(width = 1, color = "white", size = 1.5) +
+  geom_text(aes(label = label_text),
+            position = position_stack(vjust = 0.5),
+            size = 6, fontface = "bold", color = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("non-hate" = "#2ecc71", "hate" = "#e74c3c")) +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")
+  ) +
+  labs(title = "Dataset Class Distribution")
+```
+
+The dataset shows class imbalance with approximately 63.6% non-hate and 36.4% hate speech samples. This reflects real-world distributions where hate speech is less common than regular content.
+
+### Text Length Analysis
+
+```{r length-analysis, fig.height=6}
+texts_analysis <- texts |>
+  mutate(
+    char_length = nchar(text),
+    word_count = str_count(text, "\\S+")
+  )
+
+p1 <- ggplot(texts_analysis, aes(x = char_length, fill = label_name)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  scale_fill_manual(values = c("non-hate" = "#2ecc71", "hate" = "#e74c3c")) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Character Length Distribution by Class",
+    x = "Character Count",
+    y = "Frequency",
+    fill = "Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+
+p2 <- ggplot(texts_analysis, aes(x = label_name, y = word_count, fill = label_name)) +
+  geom_violin(alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(width = 0.2, alpha = 0.5, outlier.alpha = 0.3, show.legend = FALSE) +
+  scale_fill_manual(values = c("non-hate" = "#2ecc71", "hate" = "#e74c3c")) +
+  scale_y_continuous(labels = comma) +
+  coord_cartesian(ylim = c(0, 100)) +
+  labs(
+    title = "Word Count Distribution by Class",
+    x = "",
+    y = "Word Count"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+
+```{r length-stats}
+texts_analysis |>
+  group_by(label_name) |>
+  summarise(
+    samples = n(),
+    mean_chars = round(mean(char_length), 1),
+    median_chars = round(median(char_length), 1),
+    mean_words = round(mean(word_count), 1),
+    median_words = round(median(word_count), 1)
+  ) |>
+  knitr::kable(caption = "Text Statistics by Class")
+```
+
+### Sample Texts
+
+Note: Sample texts may contain offensive content typical of hate speech datasets.
+
+```{r sample-texts}
+cat("Sample texts are available but not displayed here to avoid showing potentially offensive content.\n")
+cat("For inspection, use: texts |> filter(label_name == 'hate') |> slice_sample(n = 5)\n")
+```
+
+## Data Preparation
+
+Split the data into training and testing sets:
+
+```{r}
+set.seed(42)
+
+n <- nrow(texts)
+train_idx <- sample(n, size = floor(0.8 * n))
+
+train_data <- texts[train_idx, ]
+test_data <- texts[-train_idx, ]
+
+cat(sprintf("Training samples: %s\n", comma(nrow(train_data))))
+cat(sprintf("Testing samples: %s\n", comma(nrow(test_data))))
+```
+
+## Training a Classifier
+
+Create and train a binary classifier for hate speech detection:
+
+```{r}
+classifier <- classifier(num_labels = 2)
+
+classifier <- classifier |>
+  train(
+    train_data,
+    text,
+    label,
+    epochs = 4,
+    batch_size = 8,
+    learning_rate = 1e-3,
+    validation_split = 0.2
+  )
+```
+
+The classification head is trained while keeping the pretrained Granite model frozen. This approach is efficient and helps prevent overfitting, which is particularly important given the class imbalance.
+
+## Making Predictions
+
+Apply the trained classifier to the test set:
+
+```{r}
+predictions <- predict(
+  classifier,
+  test_data,
+  text,
+  type = "class"
+)
+
+probabilities <- predict(
+  classifier,
+  test_data,
+  text,
+  type = "prob"
+)
+
+predictions |>
+  mutate(
+    text_preview = substr(text, 1, 80),
+    true_class = label_name[label + 1],
+    pred_class = c("non-hate", "hate")[prediction + 1]
+  ) |>
+  select(text_preview, true_class, pred_class) |>
+  head(10) |>
+  knitr::kable()
+```
+
+## Model Evaluation
+
+### Performance Metrics
+
+```{r metrics}
+tp <- sum(predictions$prediction == 1 & predictions$label == 1)
+fp <- sum(predictions$prediction == 1 & predictions$label == 0)
+fn <- sum(predictions$prediction == 0 & predictions$label == 1)
+tn <- sum(predictions$prediction == 0 & predictions$label == 0)
+
+accuracy <- (tp + tn) / (tp + tn + fp + fn)
+precision <- tp / (tp + fp)
+recall <- tp / (tp + fn)
+f1 <- 2 * (precision * recall) / (precision + recall)
+specificity <- tn / (tn + fp)
+
+metrics_df <- data.frame(
+  Metric = c("Accuracy", "Precision", "Recall", "F1 Score", "Specificity"),
+  Value = c(accuracy, precision, recall, f1, specificity)
+)
+
+knitr::kable(metrics_df, digits = 4, caption = "Model Performance Metrics")
+```
+
+**Key Metrics for Hate Speech Detection:**
+- **Recall**: Critical to minimize false negatives (missing actual hate speech)
+- **Precision**: Important to minimize false positives (over-flagging)
+- **F1 Score**: Balances precision and recall for overall effectiveness
+
+### Confusion Matrix
+
+```{r confusion-matrix, fig.height=6}
+conf_matrix <- data.frame(
+  Predicted = c("Non-Hate", "Non-Hate", "Hate", "Hate"),
+  Actual = c("Non-Hate", "Hate", "Non-Hate", "Hate"),
+  Count = c(tn, fn, fp, tp)
+) |>
+  mutate(
+    Percentage = Count / sum(Count) * 100,
+    Label = sprintf("%s\n(%.1f%%)", comma(Count), Percentage)
+  )
+
+ggplot(conf_matrix, aes(x = Actual, y = Predicted, fill = Count)) +
+  geom_tile(color = "white", size = 2) +
+  geom_text(aes(label = Label), size = 7, fontface = "bold") +
+  scale_fill_gradient(low = "#ecf0f1", high = "#3498db", labels = comma) +
+  labs(
+    title = "Confusion Matrix: Hate Speech Detection",
+    subtitle = sprintf("Overall Accuracy: %.2f%%", accuracy * 100),
+    x = "Actual Class",
+    y = "Predicted Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 13, face = "bold"),
+    legend.position = "right"
+  ) +
+  coord_fixed()
+```
+
+### Performance by Class
+
+```{r class-performance, fig.height=5}
+class_metrics <- data.frame(
+  Class = rep(c("Non-Hate", "Hate"), each = 3),
+  Metric = rep(c("Precision", "Recall", "F1 Score"), 2),
+  Value = c(
+    tn / (tn + fn),
+    tn / (tn + fp),
+    2 * (tn / (tn + fn)) * (tn / (tn + fp)) / ((tn / (tn + fn)) + (tn / (tn + fp))),
+    precision,
+    recall,
+    f1
+  )
+)
+
+ggplot(class_metrics, aes(x = Metric, y = Value, fill = Class)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = sprintf("%.3f", Value)),
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 4) +
+  scale_fill_manual(values = c("Non-Hate" = "#2ecc71", "Hate" = "#e74c3c")) +
+  scale_y_continuous(limits = c(0, 1.1), labels = percent) +
+  labs(
+    title = "Performance Metrics by Class",
+    x = "",
+    y = "Score",
+    fill = "Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+```
+
+For hate speech detection, high recall is particularly important to ensure that actual hate speech is not missed, even if it means some false positives that can be reviewed by human moderators.
+
+### Probability Distribution
+
+```{r prob-distribution, fig.height=6}
+prob_analysis <- probabilities |>
+  mutate(
+    actual_class = ifelse(test_data$label[1:n()] == 1, "Hate", "Non-Hate"),
+    hate_prob = prob_2,
+    correct = (prob_2 > 0.5 & test_data$label[1:n()] == 1) |
+              (prob_2 <= 0.5 & test_data$label[1:n()] == 0)
+  )
+
+ggplot(prob_analysis, aes(x = hate_prob, fill = actual_class)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "black", size = 1) +
+  scale_fill_manual(values = c("Non-Hate" = "#2ecc71", "Hate" = "#e74c3c")) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Predicted Probability Distribution",
+    subtitle = "Dashed line shows classification threshold (0.5)",
+    x = "Probability of Hate Speech",
+    y = "Count",
+    fill = "Actual Class"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "top"
+  )
+```
+
+## Error Analysis
+
+### Confidence Analysis
+
+```{r confidence-analysis, fig.height=5}
+confidence_data <- probabilities |>
+  mutate(
+    true_class = ifelse(test_data$label[1:n()] == 1, "Hate", "Non-Hate"),
+    confidence = pmax(prob_1, prob_2),
+    correct = (prob_2 > 0.5 & test_data$label[1:n()] == 1) |
+              (prob_2 <= 0.5 & test_data$label[1:n()] == 0),
+    prediction_type = ifelse(correct, "Correct", "Incorrect")
+  )
+
+ggplot(confidence_data, aes(x = confidence, fill = prediction_type)) +
+  geom_histogram(bins = 30, alpha = 0.8) +
+  facet_wrap(~true_class, ncol = 1) +
+  scale_fill_manual(values = c("Correct" = "#27ae60", "Incorrect" = "#c0392b")) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Prediction Confidence Distribution by Outcome",
+    x = "Model Confidence",
+    y = "Count",
+    fill = "Prediction"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top",
+    strip.text = element_text(size = 12, face = "bold")
+  )
+```
+
+### Error Patterns
+
+```{r error-stats}
+errors <- predictions |>
+  filter(prediction != label)
+
+cat(sprintf("Total misclassifications: %s (%.2f%%)\n",
+            comma(nrow(errors)),
+            nrow(errors) / nrow(predictions) * 100))
+
+cat(sprintf("False positives (flagged as hate, actually non-hate): %s\n", comma(fp)))
+cat(sprintf("False negatives (flagged as non-hate, actually hate): %s\n", comma(fn)))
+```
+
+## ROC Curve and Threshold Analysis
+
+```{r roc-curve, fig.height=6}
+thresholds <- seq(0, 1, by = 0.01)
+roc_data <- lapply(thresholds, function(thresh) {
+  pred_class <- ifelse(probabilities$prob_2 > thresh, 1, 0)
+  actual <- test_data$label[1:nrow(probabilities)]
+
+  tp <- sum(pred_class == 1 & actual == 1)
+  fp <- sum(pred_class == 1 & actual == 0)
+  fn <- sum(pred_class == 0 & actual == 1)
+  tn <- sum(pred_class == 0 & actual == 0)
+
+  tpr <- tp / (tp + fn)
+  fpr <- fp / (fp + tn)
+
+  data.frame(threshold = thresh, tpr = tpr, fpr = fpr)
+}) |> bind_rows()
+
+auc <- sum(diff(roc_data$fpr) * (head(roc_data$tpr, -1) + tail(roc_data$tpr, -1)) / 2)
+
+ggplot(roc_data, aes(x = fpr, y = tpr)) +
+  geom_line(color = "#3498db", size = 1.5) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50") +
+  annotate("text", x = 0.7, y = 0.3,
+           label = sprintf("AUC = %.4f", abs(auc)),
+           size = 6, fontface = "bold") +
+  labs(
+    title = "ROC Curve: Hate Speech Detection",
+    subtitle = "Receiver Operating Characteristic",
+    x = "False Positive Rate",
+    y = "True Positive Rate (Recall)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12)
+  ) +
+  coord_fixed()
+```
+
+## Deployment Considerations
+
+For production deployment of hate speech detection:
+
+1. **Human-in-the-Loop**: Automated systems should feed into human review, not replace it entirely
+2. **Threshold Tuning**: Lower thresholds increase recall but create more work for human reviewers
+3. **Context Awareness**: Consider conversation context, not just individual messages
+4. **Bias Monitoring**: Regularly audit for demographic bias in predictions
+5. **Appeal Process**: Provide users with appeal mechanisms for false positives
+6. **Regular Retraining**: Update models as language patterns and hate speech tactics evolve
+7. **Transparency**: Be clear with users about automated content moderation
+
+### Example: Multi-Tier Review System
+
+```{r review-tiers}
+tier_analysis <- confidence_data |>
+  mutate(
+    tier = case_when(
+      confidence >= 0.95 & prob_2 > 0.5 ~ "Automatic Action",
+      confidence >= 0.7 & prob_2 > 0.5 ~ "Priority Review",
+      prob_2 > 0.5 ~ "Standard Review",
+      TRUE ~ "No Action"
+    )
+  ) |>
+  count(tier) |>
+  mutate(percentage = n / sum(n) * 100)
+
+cat("Multi-tier review system based on confidence:\n\n")
+tier_analysis |>
+  mutate(
+    tier = factor(tier, levels = c("Automatic Action", "Priority Review", "Standard Review", "No Action"))
+  ) |>
+  arrange(tier) |>
+  knitr::kable(
+    col.names = c("Review Tier", "Count", "Percentage"),
+    digits = 1
+  )
+```
+
+### Precision-Recall Tradeoff
+
+```{r pr-tradeoff, fig.height=6}
+pr_data <- lapply(thresholds, function(thresh) {
+  pred_class <- ifelse(probabilities$prob_2 > thresh, 1, 0)
+  actual <- test_data$label[1:nrow(probabilities)]
+
+  tp <- sum(pred_class == 1 & actual == 1)
+  fp <- sum(pred_class == 1 & actual == 0)
+  fn <- sum(pred_class == 0 & actual == 1)
+
+  precision <- ifelse(tp + fp > 0, tp / (tp + fp), 1)
+  recall <- ifelse(tp + fn > 0, tp / (tp + fn), 0)
+  f1 <- ifelse(precision + recall > 0, 2 * precision * recall / (precision + recall), 0)
+
+  data.frame(
+    threshold = thresh,
+    precision = precision,
+    recall = recall,
+    f1 = f1
+  )
+}) |> bind_rows()
+
+optimal_threshold <- pr_data$threshold[which.max(pr_data$f1)]
+
+pr_long <- pr_data |>
+  pivot_longer(cols = c(precision, recall, f1),
+               names_to = "metric",
+               values_to = "value")
+
+ggplot(pr_long, aes(x = threshold, y = value, color = metric)) +
+  geom_line(size = 1.2) +
+  geom_vline(xintercept = optimal_threshold, linetype = "dashed",
+             color = "black", size = 0.8) +
+  annotate("text", x = optimal_threshold + 0.15, y = 0.5,
+           label = sprintf("Optimal threshold\n%.3f", optimal_threshold),
+           size = 4) +
+  scale_color_manual(
+    values = c("precision" = "#e74c3c", "recall" = "#3498db", "f1" = "#2ecc71"),
+    labels = c("Precision", "Recall", "F1 Score")
+  ) +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Precision-Recall Tradeoff by Threshold",
+    x = "Classification Threshold",
+    y = "Score",
+    color = "Metric"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+```
+
+## Ethical Considerations
+
+Hate speech detection systems must be deployed responsibly:
+
+1. **Bias and Fairness**: Models may exhibit bias against certain dialects, communities, or reclaimed language
+2. **Context Matters**: What constitutes hate speech can be context-dependent and culturally specific
+3. **Over-Censorship Risk**: Aggressive moderation can suppress legitimate speech
+4. **Under-Moderation Risk**: Permissive systems allow harm to vulnerable groups
+5. **Transparency**: Users should understand when and how automated moderation is applied
+6. **Appeal Mechanisms**: False positives need efficient review and correction processes
+7. **Regular Auditing**: Monitor for unintended consequences and demographic disparities
+
+## Conclusion
+
+This vignette demonstrated using graniteR for hate speech detection, achieving strong classification performance on a challenging content moderation task. The classification head training approach provides excellent results while being efficient.
+
+Key takeaways:
+- Hate speech detection requires balancing recall (catching hate speech) with precision (avoiding over-flagging)
+- Class imbalance is common and should be considered during evaluation
+- Confidence scores enable tiered review systems that balance automation with human oversight
+- Ethical deployment requires ongoing monitoring, bias auditing, and human review
+
+## References
+
+- Granite Embedding R2 Models (2025): https://arxiv.org/html/2508.21085v1
+- Measuring Hate Speech Dataset: https://huggingface.co/datasets/ucberkeley-dlab/measuring-hate-speech
+- IBM Granite Models: https://huggingface.co/ibm-granite
+- Transformers Library: https://huggingface.co/docs/transformers

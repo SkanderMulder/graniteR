@@ -57,3 +57,172 @@
 #' table(malicious_prompts_full$label)
 #' }
 "malicious_prompts_full"
+
+#' Emotion Detection Sample Dataset
+#'
+#' A sample dataset of 15,000 labeled text samples from the dair-ai/emotion dataset.
+#' This dataset contains text samples labeled with one of six basic emotions based
+#' on Ekman's emotion theory.
+#'
+#' @format A data frame with 15,000 rows and 3 variables:
+#' \describe{
+#'   \item{text}{Character. The text content}
+#'   \item{label}{Integer. Emotion label (0-5)}
+#'   \item{label_name}{Character. Emotion name: sadness (0), joy (1), love (2), anger (3), fear (4), surprise (5)}
+#' }
+#'
+#' @details
+#' Label distribution (approximate):
+#' \itemize{
+#'   \item Joy: ~34%
+#'   \item Sadness: ~29%
+#'   \item Anger: ~14%
+#'   \item Fear: ~12%
+#'   \item Love: ~8%
+#'   \item Surprise: ~3%
+#' }
+#'
+#' @source \url{https://huggingface.co/datasets/dair-ai/emotion}
+#'
+#' @examples
+#' \dontrun{
+#' data(emotion_sample)
+#' head(emotion_sample)
+#' table(emotion_sample$label_name)
+#' }
+"emotion_sample"
+
+#' Emotion Detection Full Dataset
+#'
+#' The complete dataset of 20,000 labeled text samples from the dair-ai/emotion
+#' dataset. This dataset contains text samples labeled with one of six basic
+#' emotions (sadness, joy, love, anger, fear, surprise).
+#'
+#' @format A data frame with 20,000 rows and 3 variables:
+#' \describe{
+#'   \item{text}{Character. The text content}
+#'   \item{label}{Integer. Emotion label (0-5)}
+#'   \item{label_name}{Character. Emotion name}
+#' }
+#'
+#' @source \url{https://huggingface.co/datasets/dair-ai/emotion}
+#'
+#' @examples
+#' \dontrun{
+#' data(emotion_full)
+#' head(emotion_full)
+#' table(emotion_full$label_name)
+#' }
+"emotion_full"
+
+#' Sentiment Analysis Sample Dataset (IMDB)
+#'
+#' A sample dataset of 10,000 movie reviews from the IMDB dataset, labeled as
+#' positive or negative sentiment. This is a classic benchmark dataset for
+#' binary sentiment classification.
+#'
+#' @format A data frame with 10,000 rows and 3 variables:
+#' \describe{
+#'   \item{text}{Character. The movie review text}
+#'   \item{label}{Integer. Sentiment label (0 = negative, 1 = positive)}
+#'   \item{label_name}{Character. Sentiment name: negative or positive}
+#' }
+#'
+#' @details
+#' The dataset is perfectly balanced with 50% positive and 50% negative reviews.
+#'
+#' @source \url{https://huggingface.co/datasets/imdb}
+#'
+#' @examples
+#' \dontrun{
+#' data(sentiment_imdb_sample)
+#' head(sentiment_imdb_sample)
+#' table(sentiment_imdb_sample$label_name)
+#' }
+"sentiment_imdb_sample"
+
+#' Sentiment Analysis Full Dataset (IMDB)
+#'
+#' The complete IMDB dataset of 50,000 movie reviews, labeled as positive or
+#' negative sentiment. This is one of the most popular benchmarks for sentiment
+#' analysis in NLP.
+#'
+#' @format A data frame with 50,000 rows and 3 variables:
+#' \describe{
+#'   \item{text}{Character. The movie review text}
+#'   \item{label}{Integer. Sentiment label (0 = negative, 1 = positive)}
+#'   \item{label_name}{Character. Sentiment name}
+#' }
+#'
+#' @details
+#' The dataset is perfectly balanced with 25,000 positive and 25,000 negative reviews.
+#'
+#' @source \url{https://huggingface.co/datasets/imdb}
+#'
+#' @examples
+#' \dontrun{
+#' data(sentiment_imdb_full)
+#' head(sentiment_imdb_full)
+#' table(sentiment_imdb_full$label_name)
+#' }
+"sentiment_imdb_full"
+
+#' Hate Speech Detection Sample Dataset
+#'
+#' A sample dataset of 15,000 text samples from the ucberkeley-dlab/measuring-hate-speech
+#' dataset. This dataset contains text samples labeled as hate speech or non-hate speech.
+#'
+#' @format A data frame with 15,000 rows and 3 variables:
+#' \describe{
+#'   \item{text}{Character. The text content}
+#'   \item{label}{Integer. Binary label (0 = non-hate, 1 = hate)}
+#'   \item{label_name}{Character. Label name: non-hate or hate}
+#' }
+#'
+#' @details
+#' This dataset uses continuous hate speech scores that were binarized at a threshold
+#' of 0.5 to create binary labels. The sample contains diverse text types from
+#' social media and online platforms.
+#'
+#' @source \url{https://huggingface.co/datasets/ucberkeley-dlab/measuring-hate-speech}
+#'
+#' @examples
+#' \dontrun{
+#' data(hate_speech_sample)
+#' head(hate_speech_sample)
+#' table(hate_speech_sample$label_name)
+#' }
+"hate_speech_sample"
+
+#' Hate Speech Detection Full Dataset
+#'
+#' The complete dataset of 135,556 text samples from the ucberkeley-dlab/measuring-hate-speech
+#' dataset. This comprehensive dataset contains text samples labeled as hate speech
+#' or non-hate speech.
+#'
+#' @format A data frame with 135,556 rows and 3 variables:
+#' \describe{
+#'   \item{text}{Character. The text content}
+#'   \item{label}{Integer. Binary label (0 = non-hate, 1 = hate)}
+#'   \item{label_name}{Character. Label name}
+#' }
+#'
+#' @details
+#' Label distribution:
+#' \itemize{
+#'   \item Non-hate: 86,283 samples (63.6%)
+#'   \item Hate: 49,273 samples (36.4%)
+#' }
+#'
+#' This dataset is suitable for training robust hate speech detection models.
+#' Due to its size (23 MB uncompressed), loading may take a few seconds.
+#'
+#' @source \url{https://huggingface.co/datasets/ucberkeley-dlab/measuring-hate-speech}
+#'
+#' @examples
+#' \dontrun{
+#' data(hate_speech_full)
+#' head(hate_speech_full)
+#' table(hate_speech_full$label_name)
+#' }
+"hate_speech_full"

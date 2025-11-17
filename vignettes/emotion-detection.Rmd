@@ -1,0 +1,454 @@
+---
+title: "Emotion Detection with graniteR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Emotion Detection with graniteR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE,
+  fig.width = 10,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+This vignette demonstrates using graniteR for multi-class emotion detection in text data. We use the emotion dataset from HuggingFace (dair-ai/emotion), which contains text samples labeled with six basic emotions based on Ekman's emotion theory.
+
+The dataset includes 20,000 labeled examples, making it suitable for training robust emotion classifiers. This use case illustrates graniteR's capabilities in:
+
+- Multi-class text classification (6 classes)
+- Working with imbalanced datasets
+- Fine-tuning transformer models for emotion analysis
+- Evaluating model performance across multiple classes
+
+## Prerequisites
+
+Before proceeding, ensure you have installed graniteR and its Python dependencies using UV:
+
+```bash
+# From the graniteR package directory
+./inst/bash/setup_python.sh
+
+# Then in R, configure the Python environment
+Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
+```
+
+UV provides fast dependency installation (1-2 minutes). See the "Getting Started" vignette for detailed installation instructions.
+
+For this classification task, GPU acceleration is recommended but not required. If you have a CUDA-capable GPU, the training will be significantly faster.
+
+## Understanding the Task
+
+Emotion detection is the task of identifying the emotional tone expressed in text. Unlike simple binary sentiment analysis (positive/negative), emotion detection classifies text into specific emotional categories:
+
+- **Sadness**: Expressing sorrow, disappointment, or grief
+- **Joy**: Expressing happiness, pleasure, or satisfaction
+- **Love**: Expressing affection, care, or romantic feelings
+- **Anger**: Expressing frustration, rage, or displeasure
+- **Fear**: Expressing worry, anxiety, or concern
+- **Surprise**: Expressing unexpectedness or astonishment
+
+This fine-grained emotion classification is useful for:
+- Customer feedback analysis
+- Mental health monitoring
+- Social media sentiment tracking
+- Chatbot personality development
+
+## Loading the Dataset
+
+```{r load-data}
+library(graniteR)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+
+data(emotion_full, package = "graniteR")
+emotions <- emotion_full
+
+glimpse(emotions)
+```
+
+The dataset contains:
+- `text`: The text content
+- `label`: Integer label (0-5)
+- `label_name`: Emotion name (sadness, joy, love, anger, fear, surprise)
+
+## Exploratory Data Analysis
+
+### Class Distribution
+
+```{r class-distribution, fig.height=6}
+class_stats <- emotions |>
+  count(label_name) |>
+  mutate(
+    percentage = n / sum(n) * 100,
+    label_text = sprintf("%s\n%s (%.1f%%)", label_name, comma(n), percentage)
+  ) |>
+  arrange(desc(n))
+
+ggplot(class_stats, aes(x = reorder(label_name, n), y = n, fill = label_name)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = sprintf("%s\n(%.1f%%)", comma(n), percentage)),
+            hjust = -0.1, size = 4) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(labels = comma, limits = c(0, max(class_stats$n) * 1.15)) +
+  coord_flip() +
+  labs(
+    title = "Emotion Distribution in Dataset",
+    x = "",
+    y = "Number of Samples"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold")
+  )
+```
+
+The dataset shows class imbalance, with joy and sadness being most common, while surprise is relatively rare. This reflects real-world emotion distributions in text.
+
+### Text Length Analysis
+
+```{r length-analysis, fig.height=5}
+emotions_analysis <- emotions |>
+  mutate(
+    word_count = stringr::str_count(text, "\\S+"),
+    char_length = nchar(text)
+  )
+
+ggplot(emotions_analysis, aes(x = label_name, y = word_count, fill = label_name)) +
+  geom_violin(alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(width = 0.2, alpha = 0.5, outlier.alpha = 0.3, show.legend = FALSE) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(labels = comma) +
+  coord_cartesian(ylim = c(0, 50)) +
+  labs(
+    title = "Text Length Distribution by Emotion",
+    x = "",
+    y = "Word Count"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+```{r length-stats}
+emotions_analysis |>
+  group_by(label_name) |>
+  summarise(
+    samples = n(),
+    mean_words = round(mean(word_count), 1),
+    median_words = round(median(word_count), 1)
+  ) |>
+  arrange(desc(samples)) |>
+  knitr::kable(caption = "Text Statistics by Emotion")
+```
+
+### Sample Texts
+
+```{r sample-texts}
+cat("Sample texts by emotion:\n\n")
+for (emotion in unique(emotions$label_name)) {
+  cat(sprintf("** %s **\n", toupper(emotion)))
+  emotions |>
+    filter(label_name == emotion) |>
+    slice_sample(n = 2) |>
+    pull(text) |>
+    cat(sep = "\n")
+  cat("\n\n")
+}
+```
+
+## Data Preparation
+
+Split the data into training and testing sets:
+
+```{r}
+set.seed(42)
+
+n <- nrow(emotions)
+train_idx <- sample(n, size = floor(0.8 * n))
+
+train_data <- emotions[train_idx, ]
+test_data <- emotions[-train_idx, ]
+
+cat(sprintf("Training samples: %s\n", comma(nrow(train_data))))
+cat(sprintf("Testing samples: %s\n", comma(nrow(test_data))))
+```
+
+## Training a Classifier
+
+Create and train a multi-class classifier for emotion detection:
+
+```{r}
+classifier <- classifier(num_labels = 6)
+
+classifier <- classifier |>
+  train(
+    train_data,
+    text,
+    label,
+    epochs = 5,
+    batch_size = 8,
+    learning_rate = 1e-3,
+    validation_split = 0.2
+  )
+```
+
+The classification head is trained while keeping the pretrained Granite model frozen. This approach works well for multi-class problems and prevents overfitting.
+
+## Making Predictions
+
+Apply the trained classifier to the test set:
+
+```{r}
+predictions <- predict(
+  classifier,
+  test_data,
+  text,
+  type = "class"
+)
+
+probabilities <- predict(
+  classifier,
+  test_data,
+  text,
+  type = "prob"
+)
+
+predictions |>
+  select(text, label, prediction) |>
+  mutate(
+    true_emotion = c("sadness", "joy", "love", "anger", "fear", "surprise")[label + 1],
+    pred_emotion = c("sadness", "joy", "love", "anger", "fear", "surprise")[prediction + 1]
+  ) |>
+  select(text, true_emotion, pred_emotion) |>
+  head(10) |>
+  knitr::kable()
+```
+
+## Model Evaluation
+
+### Overall Performance
+
+```{r metrics}
+accuracy <- mean(predictions$prediction == predictions$label)
+
+cat(sprintf("Overall Accuracy: %.2f%%\n", accuracy * 100))
+```
+
+### Confusion Matrix
+
+```{r confusion-matrix, fig.height=7, fig.width=8}
+emotion_names <- c("sadness", "joy", "love", "anger", "fear", "surprise")
+
+conf_matrix_data <- predictions |>
+  mutate(
+    true_label = emotion_names[label + 1],
+    pred_label = emotion_names[prediction + 1]
+  ) |>
+  count(true_label, pred_label) |>
+  complete(true_label = emotion_names, pred_label = emotion_names, fill = list(n = 0))
+
+ggplot(conf_matrix_data, aes(x = true_label, y = pred_label, fill = n)) +
+  geom_tile(color = "white", size = 1) +
+  geom_text(aes(label = n), size = 4, fontface = "bold") +
+  scale_fill_gradient(low = "#f0f0f0", high = "#3498db", labels = comma) +
+  labs(
+    title = "Confusion Matrix: Emotion Detection",
+    x = "True Emotion",
+    y = "Predicted Emotion",
+    fill = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+### Per-Class Metrics
+
+```{r per-class-metrics, fig.height=6}
+calculate_metrics <- function(predictions, class_label) {
+  tp <- sum(predictions$prediction == class_label & predictions$label == class_label)
+  fp <- sum(predictions$prediction == class_label & predictions$label != class_label)
+  fn <- sum(predictions$prediction != class_label & predictions$label == class_label)
+  tn <- sum(predictions$prediction != class_label & predictions$label != class_label)
+
+  precision <- if (tp + fp > 0) tp / (tp + fp) else 0
+  recall <- if (tp + fn > 0) tp / (tp + fn) else 0
+  f1 <- if (precision + recall > 0) 2 * precision * recall / (precision + recall) else 0
+
+  data.frame(
+    emotion = emotion_names[class_label + 1],
+    precision = precision,
+    recall = recall,
+    f1 = f1
+  )
+}
+
+metrics_df <- bind_rows(lapply(0:5, function(i) calculate_metrics(predictions, i)))
+
+metrics_long <- metrics_df |>
+  pivot_longer(cols = c(precision, recall, f1),
+               names_to = "metric",
+               values_to = "value")
+
+ggplot(metrics_long, aes(x = emotion, y = value, fill = metric)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = sprintf("%.3f", value)),
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(
+    values = c("precision" = "#e74c3c", "recall" = "#3498db", "f1" = "#2ecc71"),
+    labels = c("Precision", "Recall", "F1 Score")
+  ) +
+  scale_y_continuous(limits = c(0, 1.1), labels = percent) +
+  labs(
+    title = "Performance Metrics by Emotion",
+    x = "",
+    y = "Score",
+    fill = "Metric"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+```{r metrics-table}
+metrics_df |>
+  mutate(across(c(precision, recall, f1), ~sprintf("%.3f", .))) |>
+  knitr::kable(caption = "Detailed Metrics by Emotion Class")
+```
+
+### Probability Distribution
+
+```{r prob-distribution, fig.height=7}
+prob_analysis <- probabilities |>
+  mutate(
+    true_emotion = emotion_names[test_data$label[1:n()] + 1],
+    max_prob = pmax(prob_1, prob_2, prob_3, prob_4, prob_5, prob_6),
+    predicted_class = max.col(cbind(prob_1, prob_2, prob_3, prob_4, prob_5, prob_6)) - 1,
+    pred_emotion = emotion_names[predicted_class + 1],
+    correct = predicted_class == test_data$label[1:n()]
+  )
+
+ggplot(prob_analysis, aes(x = max_prob, fill = correct)) +
+  geom_histogram(bins = 30, alpha = 0.8) +
+  facet_wrap(~true_emotion, ncol = 2) +
+  scale_fill_manual(
+    values = c("TRUE" = "#27ae60", "FALSE" = "#c0392b"),
+    labels = c("Incorrect", "Correct")
+  ) +
+  labs(
+    title = "Prediction Confidence Distribution by Emotion",
+    x = "Maximum Probability (Confidence)",
+    y = "Count",
+    fill = "Prediction"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top",
+    strip.text = element_text(face = "bold")
+  )
+```
+
+## Error Analysis
+
+### Misclassified Examples
+
+```{r error-analysis}
+misclassified <- predictions |>
+  filter(prediction != label) |>
+  mutate(
+    true_emotion = emotion_names[label + 1],
+    pred_emotion = emotion_names[prediction + 1]
+  ) |>
+  select(text, true_emotion, pred_emotion)
+
+cat(sprintf("Misclassified samples: %s (%.2f%% of total)\n\n",
+            comma(nrow(misclassified)),
+            nrow(misclassified) / nrow(predictions) * 100))
+
+cat("Examples of misclassified texts:\n\n")
+misclassified |>
+  slice_sample(n = min(5, nrow(misclassified))) |>
+  knitr::kable(col.names = c("Text", "True", "Predicted"))
+```
+
+### Common Confusion Patterns
+
+```{r confusion-patterns}
+confusion_summary <- predictions |>
+  filter(prediction != label) |>
+  mutate(
+    true_emotion = emotion_names[label + 1],
+    pred_emotion = emotion_names[prediction + 1],
+    confusion = paste(true_emotion, "→", pred_emotion)
+  ) |>
+  count(confusion, sort = TRUE) |>
+  head(10)
+
+cat("Most common misclassifications:\n\n")
+confusion_summary |>
+  knitr::kable(col.names = c("Confusion Pattern", "Count"))
+```
+
+## Deployment Considerations
+
+For production deployment of emotion detection models:
+
+1. **Class Imbalance**: Consider using weighted loss functions or oversampling rare emotions
+2. **Threshold Tuning**: Adjust confidence thresholds based on application requirements
+3. **Context Awareness**: Emotion can be context-dependent; consider multi-sentence context
+4. **Multilingual Support**: Train separate models for different languages or use multilingual base models
+5. **Regular Updates**: Retrain as language patterns and emoji usage evolve
+
+### Example: High-Confidence Filtering
+
+```{r confidence-filtering}
+high_confidence <- prob_analysis |>
+  filter(max_prob > 0.8) |>
+  select(text, true_emotion, pred_emotion, max_prob, correct)
+
+cat(sprintf("High-confidence predictions (>80%%): %s (%.1f%% of total)\n",
+            comma(nrow(high_confidence)),
+            nrow(high_confidence) / nrow(prob_analysis) * 100))
+
+cat(sprintf("Accuracy on high-confidence predictions: %.2f%%\n",
+            mean(high_confidence$correct) * 100))
+```
+
+## Conclusion
+
+This vignette demonstrated using graniteR for multi-class emotion detection, achieving strong classification performance across six emotion categories. The classification head training approach provides excellent results while being efficient and preventing overfitting.
+
+Key takeaways:
+- Multi-class classification requires careful handling of class imbalance
+- Confusion matrices reveal which emotions are most difficult to distinguish
+- Confidence-based filtering can improve precision at the cost of coverage
+- The frozen-encoder approach works well even with imbalanced multi-class data
+
+## References
+
+- Granite Embedding R2 Models (2025): https://arxiv.org/html/2508.21085v1
+- Emotion Dataset: https://huggingface.co/datasets/dair-ai/emotion
+- IBM Granite Models: https://huggingface.co/ibm-granite
+- Transformers Library: https://huggingface.co/docs/transformers

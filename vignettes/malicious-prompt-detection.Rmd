@@ -293,18 +293,26 @@ Create and train a binary classifier for malicious prompt detection.
 # Only the classification head will be trainable
 classifier <- classifier(num_labels = 2)
 
+
 # Train with validation split
 # Note: Higher learning rates work well since only the head is trained
+if(!file.exists('classifier.RData'){
 classifier <- classifier |>
   train(
     train_data,
     text,
     label,
     epochs = 5,
-    batch_size = 16,
+    batch_size = 8,
     learning_rate = 1e-3,  # Higher LR for head-only training
     validation_split = 0.2
   )
+}elseif{}
+#save classfier
+if(!file.exists('classifier.RData')
+save(classifier, file = "classifier.RData")
+
+
 
 ```
 
@@ -323,7 +331,7 @@ Apply the trained classifier to the test set:
 # Get class predictions
 predictions <- predict(
   classifier,
-  test_data,
+  test_data |> head(),
   text,
   type = "class"
 )
