@@ -62,9 +62,12 @@ moe_classifier <- function(
   dropout = 0.2,
   expert_depth = 2
 ) {
-  if (is.null(device)) {
+  device_was_null <- is.null(device)
+  if (device_was_null) {
     torch <- reticulate::import("torch", delay_load = TRUE)
     device <- if (torch$cuda$is_available()) "cuda" else "cpu"
+  }
+  if (device_was_null) {
     cli::cli_alert_info("Using device: {device}")
   }
 

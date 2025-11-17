@@ -93,6 +93,12 @@ auto_classify <- function(
   texts <- dplyr::pull(data, !!text_col)
   labels <- dplyr::pull(data, !!label_col)
 
+  # Set device once to avoid duplicate messages
+  if (is.null(device)) {
+    torch <- reticulate::import("torch", delay_load = TRUE)
+    device <- if (torch$cuda$is_available()) "cuda" else "cpu"
+  }
+
   if (is.factor(labels) || is.character(labels)) {
     label_mapping <- sort(unique(labels))
     labels <- as.integer(factor(labels, levels = label_mapping)) - 1L
@@ -109,7 +115,7 @@ auto_classify <- function(
   if (verbose) {
     cli::cli_h1("AutoML Classification: Advanced Strategy")
     cli::cli_alert_info("Dataset: {scales::comma(n_samples)} samples, {num_labels} classes")
-    cli::cli_alert_info("Time budget: {max_time_minutes} minutes")
+    cli::cli_alert_info("Device: {device}, Time budget: {max_time_minutes} min")
     cli::cli_alert_info("Ensemble: {ensemble}, Meta-learning: {meta_learning}")
   }
 
@@ -299,6 +305,7 @@ generate_candidate_space <- function(
         learning_rate = config$learning_rate,
         epochs = config$epochs,
         num_experts = config$num_experts,
+        expert_depth = 2,  # Fixed depth for now
         description = sprintf(
           "MoE-%d (lr=%.0e, ep=%d)",
           config$num_experts, config$learning_rate, config$epochs
@@ -465,7 +472,8 @@ train_and_evaluate_fold <- function(
         num_labels = num_labels,
         num_experts = config$num_experts,
         device = device,
-        freeze_backbone = config$freeze_backbone
+        freeze_backbone = config$freeze_backbone,
+        expert_depth = config$expert_depth
       )
     }
 
@@ -530,7 +538,8 @@ train_final_model <- function(
       num_labels = num_labels,
       num_experts = config$num_experts,
       device = device,
-      freeze_backbone = config$freeze_backbone
+      freeze_backbone = config$freeze_backbone,
+      expert_depth = config$expert_depth
     )
   }
 
