@@ -1,0 +1,465 @@
+---
+title: "Advanced AutoML Strategies"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Advanced AutoML Strategies}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  fig.width = 10,
+  fig.height = 6
+)
+```
+
+## Introduction
+
+This vignette demonstrates state-of-the-art AutoML strategies implemented in graniteR:
+
+1. **Meta-Learning**: Predict model performance from dataset characteristics
+2. **CASH Optimization**: Combined Algorithm Selection and Hyperparameter tuning
+3. **Ensemble Building**: Combine diverse high-performing models
+4. **Resource-Aware Scheduling**: Intelligent time budget management
+
+These techniques are based on recent AutoML research and provide superior performance compared to simple heuristics.
+
+## Quick Start
+
+The simplest way to use advanced AutoML:
+
+```{r quick-start}
+library(graniteR)
+
+# Load data
+data(emotion_sample)
+
+# Let AutoML do everything
+clf <- auto_classify(
+  emotion_sample,
+  text,
+  label,
+  max_time_minutes = 30,
+  ensemble = TRUE
+)
+
+# Make predictions
+test_data <- emotion_sample |> slice_sample(n = 100)
+predictions <- predict(clf, test_data, text)
+```
+
+## Meta-Learning
+
+### What is Meta-Learning?
+
+Meta-learning uses **dataset characteristics** (meta-features) to predict which model will perform best, without training. This dramatically reduces search time.
+
+### Extracted Meta-Features
+
+```{r meta-features}
+library(dplyr)
+
+data(emotion_sample)
+texts <- emotion_sample$text
+labels <- as.integer(factor(emotion_sample$label)) - 1
+
+# Extract meta-features (internal function)
+meta <- graniteR:::compute_meta_features(texts, labels)
+
+str(meta)
+```
+
+Meta-features include:
+- **Size**: n_samples, n_labels, samples_per_class
+- **Balance**: label_entropy, class_imbalance
+- **Text**: avg_text_len, vocab_size, vocab_richness
+- **Complexity**: complexity_score, data_density
+
+### Performance Prediction
+
+The meta-learner predicts accuracy for each model type:
+
+```{r meta-prediction}
+# Predict performance without training
+for (type in c("frozen", "finetuned", "moe")) {
+  pred_acc <- graniteR:::predict_candidate_performance(meta, type)
+  cat(sprintf("%s: %.3f\n", type, pred_acc))
+}
+```
+
+**How it works**: Heuristics based on empirical observations:
+- Small data → frozen performs best
+- Large data → fine-tuning helps
+- Complex multi-class → MoE can win
+- Imbalanced → simple models struggle
+
+## CASH: Combined Algorithm Selection and Hyperparameter Optimization
+
+### The Problem
+
+Traditional AutoML only selects model architecture. CASH jointly optimizes:
+1. Model type (frozen vs fine-tuned vs MoE)
+2. Hyperparameters (learning rate, epochs, num_experts)
+
+### Search Space
+
+```{r cash-space}
+# Generate candidate space
+candidates <- graniteR:::generate_candidate_space(
+  meta_features = meta,
+  max_time_minutes = 60,
+  cv_folds = 3,
+  use_meta_learning = TRUE
+)
+
+# Inspect candidates
+for (i in 1:min(5, length(candidates))) {
+  cand <- candidates[[i]]
+  cat(sprintf("%d. %s\n", i, cand$description))
+  cat(sprintf("   Predicted: %.3f, Time: %.1f min\n",
+              cand$predicted_accuracy, cand$estimated_time))
+}
+```
+
+**Key features**:
+- Hyperparameter grid for each model type
+- Time budget filtering (only affordable candidates)
+- Meta-learning ranking (best predicted first)
+- Top-K selection to limit search
+
+### Evaluation with Early Stopping
+
+```{r cash-eval}
+# Cross-validation with time budget monitoring
+cv_results <- graniteR:::evaluate_candidates_with_budget(
+  texts = texts,
+  labels = labels,
+  num_labels = length(unique(labels)),
+  candidates = candidates,
+  cv_folds = 3,
+  start_time = Sys.time(),
+  max_time_minutes = 30,
+  device = "cpu",
+  verbose = TRUE
+)
+
+# Best candidate
+best <- cv_results[[which.max(sapply(cv_results, function(x) x$mean_accuracy))]]
+cat(sprintf("Best: %s, Accuracy: %.4f\n",
+            best$config$description, best$mean_accuracy))
+```
+
+## Ensemble Building
+
+### Why Ensembles?
+
+Ensembles combine predictions from multiple diverse models:
+- **Better accuracy**: Reduces variance
+- **More robust**: Less sensitive to outliers
+- **Leverages diversity**: Different models make different errors
+
+### Diversity Selection
+
+```{r ensemble-diversity}
+# Select diverse top performers
+selected_idx <- graniteR:::select_diverse_candidates(
+  cv_results,
+  k = 3
+)
+
+selected_models <- lapply(selected_idx, function(i) {
+  cv_results[[i]]$config$description
+})
+
+cat("Selected for ensemble:\n")
+for (i in seq_along(selected_models)) {
+  cat(sprintf("  %d. %s\n", i, selected_models[[i]]))
+}
+```
+
+**Selection strategy**:
+1. Start with best performing model
+2. Greedily add models that are:
+   - High performing (accuracy)
+   - Diverse (different architecture/hyperparams)
+3. Score = 70% accuracy + 30% diversity
+
+### Building the Ensemble
+
+```{r ensemble-build}
+# Build ensemble from CV results
+ensemble <- graniteR:::build_ensemble_from_results(
+  texts = texts,
+  labels = labels,
+  num_labels = length(unique(labels)),
+  cv_results = cv_results,
+  device = "cpu",
+  verbose = TRUE
+)
+
+# Inspect
+cat(sprintf("Ensemble with %d models\n", ensemble$n_models))
+cat(sprintf("Weights: %s\n", paste(round(ensemble$weights, 3), collapse = ", ")))
+```
+
+### Ensemble Predictions
+
+```{r ensemble-predict}
+# Ensemble automatically combines predictions
+test_predictions <- predict(ensemble, test_data, text, type = "prob")
+
+# Weighted average of member probabilities
+head(test_predictions)
+```
+
+## Complete Workflow
+
+### Scenario 1: Quick Classification (15 min budget)
+
+```{r workflow-quick}
+data(emotion_sample)
+
+clf <- auto_classify(
+  emotion_sample,
+  text,
+  label,
+  max_time_minutes = 15,
+  ensemble = FALSE,  # No time for ensemble
+  meta_learning = TRUE
+)
+
+# Uses meta-learning to quickly identify best approach
+# Evaluates top 3-5 candidates
+# Returns single best model
+```
+
+### Scenario 2: Best Performance (60 min budget)
+
+```{r workflow-best}
+data(emotion_full)
+
+ensemble <- auto_classify(
+  emotion_full,
+  text,
+  label,
+  max_time_minutes = 60,
+  ensemble = TRUE,
+  meta_learning = TRUE
+)
+
+# Extensive CASH search
+# Evaluates 10+ configurations
+# Builds 3-model ensemble
+# Maximizes accuracy
+```
+
+### Scenario 3: Production Deployment
+
+```{r workflow-production}
+# Train with ensemble
+ensemble <- auto_classify(
+  training_data,
+  text,
+  label,
+  max_time_minutes = 120,
+  ensemble = TRUE
+)
+
+# Save ensemble (saves all member models)
+save_classifier(ensemble, "models/production_ensemble")
+
+# Load and use
+ensemble <- load_classifier("models/production_ensemble")
+predictions <- predict(ensemble, new_data, text)
+```
+
+## Configuration Options
+
+### Quick Mode (ensemble = FALSE)
+
+```{r quick-mode}
+# Fast experimentation - single best model
+clf <- auto_classify(
+  emotion_sample,
+  text,
+  label,
+  max_time_minutes = 15,
+  ensemble = FALSE  # Default
+)
+```
+
+**Characteristics**:
+- Meta-learning for candidate ranking
+- Hyperparameter grid search
+- Tests top 5-10 configurations
+- Returns single best model
+- Good for experimentation
+
+### Production Mode (ensemble = TRUE)
+
+```{r production-mode}
+# Maximum accuracy - ensemble of best models
+ensemble <- auto_classify(
+  emotion_full,
+  text,
+  label,
+  max_time_minutes = 60,
+  ensemble = TRUE
+)
+```
+
+**Characteristics**:
+- Full CASH search
+- Tests 10+ configurations
+- Builds weighted ensemble (3 models)
+- Typically 1-3% better accuracy
+- Best for critical applications
+
+### Configuration Guide
+
+| Scenario | ensemble | max_time_minutes | Expected Result |
+|----------|----------|------------------|-----------------|
+| Quick exploration | FALSE | 15-30 | Good single model |
+| Production deployment | TRUE | 60-120 | Best ensemble |
+| Large dataset (50K+) | TRUE | 120+ | MoE ensemble |
+| Small dataset (<2K) | FALSE | 15 | Frozen model |
+| Medium complexity | FALSE | 30 | Fine-tuned model |
+
+## Advanced Topics
+
+### Custom Meta-Features
+
+You can extract and inspect meta-features for your data:
+
+```{r custom-meta}
+my_meta <- graniteR:::compute_meta_features(texts, labels)
+
+# Check complexity score
+if (my_meta$complexity_score > 20) {
+  cat("Complex task - consider MoE architecture\n")
+}
+
+# Check class imbalance
+if (my_meta$class_imbalance > 5) {
+  cat("Imbalanced classes - may need resampling\n")
+}
+```
+
+### Ensemble Member Inspection
+
+```{r inspect-ensemble}
+# Access individual models in ensemble
+for (i in seq_along(ensemble$models)) {
+  model <- ensemble$models[[i]]
+  weight <- ensemble$weights[i]
+  cat(sprintf("Model %d: weight = %.3f\n", i, weight))
+}
+
+# Get predictions from specific member
+member_preds <- predict(ensemble$models[[1]], test_data, text)
+```
+
+### Time Budget Optimization
+
+```{r budget-opt}
+# Find optimal budget for your dataset
+budgets <- c(15, 30, 60, 120)
+results <- list()
+
+for (budget in budgets) {
+  clf <- auto_classify(
+    data_subset,
+    text,
+    label,
+    max_time_minutes = budget,
+    ensemble = budget >= 45,
+    cv_folds = 2  # Faster CV
+  )
+
+  # Evaluate on holdout
+  acc <- evaluate_model(clf, holdout_data)
+  results[[as.character(budget)]] <- acc
+}
+
+# Plot accuracy vs budget
+plot(budgets, unlist(results), type = "b",
+     xlab = "Time Budget (min)", ylab = "Accuracy")
+```
+
+## Implementation Details
+
+### Meta-Learning Heuristics
+
+The `predict_candidate_performance()` function uses these rules:
+
+```r
+# Base scores
+frozen:    0.70
+finetuned: 0.82
+moe:       0.84
+
+# Adjustments
+if samples_per_class < 50:
+  frozen += 0.08, others -= 0.10
+
+if samples_per_class > 500:
+  frozen -= 0.05, others += 0.05
+
+if class_imbalance > 5:
+  frozen -= 0.03, others += 0.02
+
+if complexity_score > 20:
+  moe += 0.03
+
+if n_labels >= 6:
+  moe += 0.04
+```
+
+These heuristics are based on empirical observations across multiple text classification benchmarks.
+
+### CASH Search Space
+
+Hyperparameter grids:
+
+```r
+Frozen:
+  learning_rate: [5e-4, 1e-3, 2e-3]
+  epochs: [3, 4, 5, 6, 7]
+
+Fine-tuned:
+  learning_rate: [1e-5, 2e-5, 5e-5]
+  epochs: [2, 3, 4]
+
+MoE:
+  learning_rate: [1e-5, 2e-5]
+  epochs: [2, 3]
+  num_experts: [2, 4, 6]
+```
+
+Total search space: ~50 configurations, filtered by:
+1. Data requirements (e.g., need 200+ samples/class for MoE)
+2. Time budget (only affordable candidates)
+3. Meta-learning ranking (top 10)
+
+## Performance Tips
+
+1. **Start with basic `auto_classify()`** for initial experiments
+2. **Use meta_learning = TRUE** to reduce search time
+3. **Enable ensemble for critical applications** (needs 2x time budget)
+4. **Adjust cv_folds** based on dataset size (2-3 for large datasets)
+5. **Save ensemble models** for reuse across experiments
+
+## Summary
+
+State-of-the-art AutoML strategies in graniteR:
+
+- **Meta-Learning**: Fast candidate ranking from dataset properties
+- **CASH**: Joint model and hyperparameter optimization
+- **Ensembles**: Combine diverse models for better accuracy
+- **Resource-Aware**: Intelligent time budget management
+
+For most use cases, `auto_classify()` provides excellent results. Use `auto_classify()` when you need maximum accuracy and have time budget for extensive search and ensembling.

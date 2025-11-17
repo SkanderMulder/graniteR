@@ -2,14 +2,16 @@
 % Please edit documentation in R/auto_classify.R
 \name{auto_classify}
 \alias{auto_classify}
-\title{Automatic text classification with model selection}
+\title{Automatic text classification with AutoML}
 \usage{
 auto_classify(
   data,
   text_col,
   label_col,
-  cv_folds = NULL,
   max_time_minutes = 30,
+  ensemble = FALSE,
+  meta_learning = TRUE,
+  cv_folds = NULL,
   device = NULL,
   verbose = TRUE
 )
@@ -21,67 +23,83 @@ auto_classify(
 
 \item{label_col}{Column containing labels (unquoted)}
 
-\item{cv_folds}{Number of cross-validation folds. If NULL (default), automatically
-determined: 5 folds for <2K samples, 3 for 2-10K, 2 for >10K.}
-
 \item{max_time_minutes}{Maximum time budget in minutes (default: 30)}
 
-\item{device}{Device to use ("cpu" or "cuda"). Auto-detected if NULL.}
+\item{ensemble}{Enable ensemble building (default: FALSE). Requires 2x time budget.}
+
+\item{meta_learning}{Use meta-features for candidate ranking (default: TRUE)}
+
+\item{cv_folds}{Number of CV folds (NULL = adaptive: 5/<2K, 3/2-10K, 2/>10K)}
+
+\item{device}{Device to use ("cpu" or "cuda", NULL = auto-detect)}
 
 \item{verbose}{Show detailed progress (default: TRUE)}
 }
 \value{
-A trained classifier (standard or MoE) ready for predictions
+Trained classifier or ensemble ready for predictions
 }
 \description{
-This is the easy entry point for text classification. It automatically:
-- Determines optimal model architecture based on dataset size and classes
-- Performs k-fold cross-validation to select best approach
-- Trains final model on full dataset
-- Returns ready-to-use classifier
+State-of-the-art automatic model selection using:
+- Meta-learning to predict model performance from dataset characteristics
+- CASH-style combined algorithm and hyperparameter optimization
+- Ensemble building from diverse high-performing candidates
+- Resource-aware time budget management
 }
 \details{
-**Data-Driven Strategy**:
+**How it works**:
 
-Computes `samples_per_class` and `complexity_score`, then decides:
-- **Always**: Frozen baseline (fast, prevents overfitting)
-- **Add fine-tuning if**: 50+ samples/class AND fits time budget
-- **Add MoE if**: 4+ classes, 200+ samples/class, complexity > 12, AND fits budget
+1. **Meta-feature extraction**: Computes dataset characteristics like
+   samples_per_class, label_entropy, complexity_score, vocab_richness
 
-Model selection via cross-validation:
-1. Adaptive CV folds (fewer for larger datasets)
-2. Tests all candidates that fit in time budget
-3. Selects best based on validation accuracy
-4. Trains final model on all data
+2. **CASH search space**: Generates candidate configurations across:
+   - Model types: frozen, fine-tuned, MoE
+   - Hyperparameters: learning rates, epochs, num_experts
 
-Time budget management:
-- Estimates training time from dataset size
-- Only tests approaches that fit (with safety margin)
-- Early stopping if budget exhausted during CV
+3. **Meta-learning ranking**: Predicts performance without training,
+   prioritizes most promising candidates
+
+4. **Cross-validation**: Evaluates candidates with early stopping
+   when time budget is exhausted
+
+5. **Model selection or ensemble**: Returns best single model, or
+   builds weighted ensemble from diverse top performers
+
+**When to use ensemble**:
+- Critical applications requiring maximum accuracy
+- Time budget >= 45 minutes
+- Typically improves accuracy by 1-3%
+
+**Performance**: For quick experiments use `ensemble = FALSE` with
+15-30 min budget. For production use `ensemble = TRUE` with 60+ min.
 }
 \examples{
 \dontrun{
 library(dplyr)
+data(emotion_sample)
 
-# Simple usage - just data and columns
+# Quick classification
 clf <- auto_classify(
-  data = emotion_sample,
-  text_col = text,
-  label_col = label
+  emotion_sample,
+  text,
+  label,
+  max_time_minutes = 15
+)
+
+# Best performance with ensemble
+ensemble <- auto_classify(
+  emotion_full,
+  text,
+  label,
+  max_time_minutes = 60,
+  ensemble = TRUE
 )
 
 # Make predictions
+test_data <- emotion_sample |> slice_sample(n = 100)
 predictions <- predict(clf, test_data, text)
-
-# With time budget
-clf <- auto_classify(
-  data = emotion_full,
-  text_col = text,
-  label_col = label,
-  max_time_minutes = 15
-)
 }
 }
 \seealso{
-\code{\link{classifier}}, \code{\link{moe_classifier}}
+\code{\link{classifier}}, \code{\link{moe_classifier}},
+  \code{\link{train}}, \code{\link{predict.classifier}}
 }

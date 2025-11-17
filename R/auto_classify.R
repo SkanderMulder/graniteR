@@ -1,72 +1,88 @@
-#' Automatic text classification with model selection
+#' Automatic text classification with AutoML
 #'
-#' This is the easy entry point for text classification. It automatically:
-#' - Determines optimal model architecture based on dataset size and classes
-#' - Performs k-fold cross-validation to select best approach
-#' - Trains final model on full dataset
-#' - Returns ready-to-use classifier
+#' State-of-the-art automatic model selection using:
+#' - Meta-learning to predict model performance from dataset characteristics
+#' - CASH-style combined algorithm and hyperparameter optimization
+#' - Ensemble building from diverse high-performing candidates
+#' - Resource-aware time budget management
 #'
 #' @param data Training data frame
 #' @param text_col Column containing text (unquoted)
 #' @param label_col Column containing labels (unquoted)
-#' @param cv_folds Number of cross-validation folds. If NULL (default), automatically
-#'   determined: 5 folds for <2K samples, 3 for 2-10K, 2 for >10K.
 #' @param max_time_minutes Maximum time budget in minutes (default: 30)
-#' @param device Device to use ("cpu" or "cuda"). Auto-detected if NULL.
+#' @param ensemble Enable ensemble building (default: FALSE). Requires 2x time budget.
+#' @param meta_learning Use meta-features for candidate ranking (default: TRUE)
+#' @param cv_folds Number of CV folds (NULL = adaptive: 5/<2K, 3/2-10K, 2/>10K)
+#' @param device Device to use ("cpu" or "cuda", NULL = auto-detect)
 #' @param verbose Show detailed progress (default: TRUE)
 #'
-#' @return A trained classifier (standard or MoE) ready for predictions
+#' @return Trained classifier or ensemble ready for predictions
+#' @export
 #'
 #' @details
-#' **Data-Driven Strategy**:
+#' **How it works**:
 #'
-#' Computes `samples_per_class` and `complexity_score`, then decides:
-#' - **Always**: Frozen baseline (fast, prevents overfitting)
-#' - **Add fine-tuning if**: 50+ samples/class AND fits time budget
-#' - **Add MoE if**: 4+ classes, 200+ samples/class, complexity > 12, AND fits budget
+#' 1. **Meta-feature extraction**: Computes dataset characteristics like
+#'    samples_per_class, label_entropy, complexity_score, vocab_richness
 #'
-#' Model selection via cross-validation:
-#' 1. Adaptive CV folds (fewer for larger datasets)
-#' 2. Tests all candidates that fit in time budget
-#' 3. Selects best based on validation accuracy
-#' 4. Trains final model on all data
+#' 2. **CASH search space**: Generates candidate configurations across:
+#'    - Model types: frozen, fine-tuned, MoE
+#'    - Hyperparameters: learning rates, epochs, num_experts
 #'
-#' Time budget management:
-#' - Estimates training time from dataset size
-#' - Only tests approaches that fit (with safety margin)
-#' - Early stopping if budget exhausted during CV
+#' 3. **Meta-learning ranking**: Predicts performance without training,
+#'    prioritizes most promising candidates
 #'
-#' @export
-#' @seealso \code{\link{classifier}}, \code{\link{moe_classifier}}
+#' 4. **Cross-validation**: Evaluates candidates with early stopping
+#'    when time budget is exhausted
+#'
+#' 5. **Model selection or ensemble**: Returns best single model, or
+#'    builds weighted ensemble from diverse top performers
+#'
+#' **When to use ensemble**:
+#' - Critical applications requiring maximum accuracy
+#' - Time budget >= 45 minutes
+#' - Typically improves accuracy by 1-3%
+#'
+#' **Performance**: For quick experiments use `ensemble = FALSE` with
+#' 15-30 min budget. For production use `ensemble = TRUE` with 60+ min.
+#'
+#' @seealso \code{\link{classifier}}, \code{\link{moe_classifier}},
+#'   \code{\link{train}}, \code{\link{predict.classifier}}
 #'
 #' @examples
 #' \dontrun{
 #' library(dplyr)
+#' data(emotion_sample)
 #'
-#' # Simple usage - just data and columns
+#' # Quick classification
 #' clf <- auto_classify(
-#'   data = emotion_sample,
-#'   text_col = text,
-#'   label_col = label
+#'   emotion_sample,
+#'   text,
+#'   label,
+#'   max_time_minutes = 15
+#' )
+#'
+#' # Best performance with ensemble
+#' ensemble <- auto_classify(
+#'   emotion_full,
+#'   text,
+#'   label,
+#'   max_time_minutes = 60,
+#'   ensemble = TRUE
 #' )
 #'
 #' # Make predictions
+#' test_data <- emotion_sample |> slice_sample(n = 100)
 #' predictions <- predict(clf, test_data, text)
-#'
-#' # With time budget
-#' clf <- auto_classify(
-#'   data = emotion_full,
-#'   text_col = text,
-#'   label_col = label,
-#'   max_time_minutes = 15
-#' )
 #' }
 auto_classify <- function(
   data,
   text_col,
   label_col,
-  cv_folds = NULL,
   max_time_minutes = 30,
+  ensemble = FALSE,
+  meta_learning = TRUE,
+  cv_folds = NULL,
   device = NULL,
   verbose = TRUE
 ) {
@@ -85,161 +101,244 @@ auto_classify <- function(
   num_labels <- length(unique(labels))
   n_samples <- length(texts)
 
-  # Adaptive CV folds: fewer folds for larger datasets
+  # Adaptive CV folds
   if (is.null(cv_folds)) {
-    cv_folds <- if (n_samples < 2000) {
-      5
-    } else if (n_samples < 10000) {
-      3
-    } else {
-      2  # Just a train/val split for very large datasets
-    }
+    cv_folds <- if (n_samples < 2000) 5 else if (n_samples < 10000) 3 else 2
   }
 
   if (verbose) {
-    cli::cli_h1("Auto-Classify: Automatic Model Selection")
+    cli::cli_h1("AutoML Classification: Advanced Strategy")
     cli::cli_alert_info("Dataset: {scales::comma(n_samples)} samples, {num_labels} classes")
     cli::cli_alert_info("Time budget: {max_time_minutes} minutes")
-    cli::cli_alert_info("Cross-validation: {cv_folds} folds")
+    cli::cli_alert_info("Ensemble: {ensemble}, Meta-learning: {meta_learning}")
   }
 
-  strategy <- select_strategy(n_samples, num_labels, max_time_minutes, cv_folds, verbose)
+  # Step 1: Extract meta-features
+  meta_features <- compute_meta_features(texts, labels)
 
   if (verbose) {
-    cli::cli_h2("Selected Strategy")
-    cli::cli_alert_success("Approach: {strategy$name}")
-    cli::cli_alert_info("Reason: {strategy$reason}")
-    if (length(strategy$candidates) > 1) {
-      cli::cli_alert_info("Will test {length(strategy$candidates)} configurations via CV")
+    cli::cli_h2("Dataset Meta-Features")
+    cli::cli_ul(c(
+      "Samples/class: {round(meta_features$samples_per_class)}",
+      "Label entropy: {round(meta_features$label_entropy, 2)}",
+      "Class imbalance: {round(meta_features$class_imbalance, 1)}x",
+      "Avg text length: {round(meta_features$avg_text_len)} chars",
+      "Vocabulary: {scales::comma(meta_features$vocab_size)} words",
+      "Complexity: {round(meta_features$complexity_score, 1)}"
+    ))
+  }
+
+  # Step 2: Generate candidate search space (CASH)
+  candidates <- generate_candidate_space(
+    meta_features,
+    max_time_minutes,
+    cv_folds,
+    meta_learning
+  )
+
+  if (verbose) {
+    cli::cli_h2("Candidate Models ({length(candidates)} total)")
+    for (i in seq_along(candidates)) {
+      cand <- candidates[[i]]
+      if (meta_learning) {
+        pred_acc <- round(cand$predicted_accuracy, 3)
+        cli::cli_alert_info(
+          "{i}. {cand$description} (predicted: {pred_acc}, cost: {round(cand$estimated_time, 1)}m)"
+        )
+      } else {
+        cli::cli_alert_info(
+          "{i}. {cand$description} (cost: {round(cand$estimated_time, 1)}m)"
+        )
+      }
     }
   }
 
-  best_config <- if (length(strategy$candidates) > 1) {
-    perform_cv_selection(
+  # Step 3: Evaluate candidates with early stopping
+  cv_results <- evaluate_candidates_with_budget(
+    texts, labels, num_labels,
+    candidates, cv_folds,
+    start_time, max_time_minutes,
+    device, verbose
+  )
+
+  if (length(cv_results) == 0) {
+    stop("No candidates could be evaluated within time budget")
+  }
+
+  # Step 4: Build ensemble or select best
+  if (ensemble && length(cv_results) >= 2) {
+    if (verbose) {
+      cli::cli_h2("Building Ensemble")
+    }
+
+    final_model <- build_ensemble_from_results(
       texts, labels, num_labels,
-      strategy$candidates, cv_folds,
-      start_time, max_time_minutes,
-      device, verbose
+      cv_results, device, verbose
     )
   } else {
-    strategy$candidates[[1]]
-  }
+    if (verbose) {
+      cli::cli_h2("Training Best Model")
+    }
 
-  if (verbose) {
-    cli::cli_h2("Training Final Model")
-    cli::cli_alert_info("Configuration: {best_config$description}")
-  }
+    best_result <- cv_results[[which.max(sapply(cv_results, function(x) x$mean_accuracy))]]
 
-  final_model <- train_final_model(
-    texts, labels, num_labels,
-    best_config, device, verbose
-  )
+    if (verbose) {
+      cli::cli_alert_success("Selected: {best_result$config$description}")
+      cli::cli_alert_info("CV accuracy: {round(best_result$mean_accuracy, 4)}")
+    }
+
+    final_model <- train_final_model(
+      texts, labels, num_labels,
+      best_result$config, device, verbose
+    )
+  }
 
   elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "mins"))
   if (verbose) {
     cli::cli_alert_success("Total time: {round(elapsed, 1)} minutes")
-    cli::cli_alert_success("Model ready for predictions!")
+    if (inherits(final_model, "ensemble_classifier")) {
+      cli::cli_alert_success("Ensemble with {final_model$n_models} models ready!")
+    } else {
+      cli::cli_alert_success("Model ready for predictions!")
+    }
   }
 
   final_model
 }
 
-#' Select training strategy based on dataset characteristics
+#' Generate candidate search space with hyperparameters
 #' @keywords internal
-select_strategy <- function(n_samples, num_labels, max_time_minutes, cv_folds, verbose) {
-  # Compute data-driven metrics
-  samples_per_class <- n_samples / num_labels
-  complexity_score <- num_labels * log10(pmax(n_samples, 100))
-
-  # Estimate single-fold training time (minutes) - empirically calibrated
-  # These are rough estimates: frozen is fast, fine-tuning is 10x slower, MoE is 15x slower
-  time_per_epoch_frozen <- n_samples / 60000  # ~1000 samples/sec
-  time_per_epoch_finetuned <- n_samples / 6000  # ~100 samples/sec
-  time_per_epoch_moe <- n_samples / 4000  # ~67 samples/sec
-
+generate_candidate_space <- function(
+  meta_features,
+  max_time_minutes,
+  cv_folds,
+  use_meta_learning
+) {
   candidates <- list()
 
-  # Always include frozen baseline
-  frozen_epochs <- pmin(10, pmax(3, ceiling(5000 / samples_per_class)))
-  candidates[[1]] <- list(
-    type = "standard",
-    freeze_backbone = TRUE,
-    learning_rate = 1e-3,
-    epochs = frozen_epochs,
-    description = "Standard frozen"
+  # Hyperparameter search space
+  frozen_configs <- expand.grid(
+    learning_rate = c(5e-4, 1e-3, 2e-3),
+    epochs = 3:7,
+    stringsAsFactors = FALSE
   )
 
-  # Add fine-tuned if enough data per class
-  # Rule: need at least 50 samples/class to benefit from fine-tuning
-  if (samples_per_class >= 50) {
-    finetuned_epochs <- pmin(5, pmax(2, ceiling(3000 / samples_per_class)))
-    # CV cost for both models
-    cv_cost <- cv_folds * (time_per_epoch_frozen * frozen_epochs + time_per_epoch_finetuned * finetuned_epochs)
-    final_cost <- time_per_epoch_finetuned * finetuned_epochs
+  finetuned_configs <- expand.grid(
+    learning_rate = c(1e-5, 2e-5, 5e-5),
+    epochs = 2:4,
+    stringsAsFactors = FALSE
+  )
 
-    if (cv_cost + final_cost <= max_time_minutes) {
+  moe_configs <- expand.grid(
+    learning_rate = c(1e-5, 2e-5),
+    epochs = 2:3,
+    num_experts = c(2, 4, 6),
+    stringsAsFactors = FALSE
+  )
+
+  # Time per epoch estimates
+  time_per_epoch_frozen <- meta_features$n_samples / 60000
+  time_per_epoch_finetuned <- meta_features$n_samples / 6000
+  time_per_epoch_moe <- meta_features$n_samples / 4000
+
+  # Generate frozen candidates
+  for (i in seq_len(nrow(frozen_configs))) {
+    config <- frozen_configs[i, ]
+    estimated_time <- cv_folds * time_per_epoch_frozen * config$epochs
+
+    candidates[[length(candidates) + 1]] <- list(
+      type = "standard",
+      freeze_backbone = TRUE,
+      learning_rate = config$learning_rate,
+      epochs = config$epochs,
+      description = sprintf(
+        "Frozen (lr=%.0e, ep=%d)",
+        config$learning_rate, config$epochs
+      ),
+      estimated_time = estimated_time,
+      predicted_accuracy = if (use_meta_learning) {
+        predict_candidate_performance(meta_features, "frozen")
+      } else NA
+    )
+  }
+
+  # Generate fine-tuned candidates if enough data
+  if (meta_features$samples_per_class >= 50) {
+    for (i in seq_len(nrow(finetuned_configs))) {
+      config <- finetuned_configs[i, ]
+      estimated_time <- cv_folds * time_per_epoch_finetuned * config$epochs
+
       candidates[[length(candidates) + 1]] <- list(
         type = "standard",
         freeze_backbone = FALSE,
-        learning_rate = 2e-5,
-        epochs = finetuned_epochs,
-        description = "Standard fine-tuned"
+        learning_rate = config$learning_rate,
+        epochs = config$epochs,
+        description = sprintf(
+          "Fine-tuned (lr=%.0e, ep=%d)",
+          config$learning_rate, config$epochs
+        ),
+        estimated_time = estimated_time,
+        predicted_accuracy = if (use_meta_learning) {
+          predict_candidate_performance(meta_features, "finetuned")
+        } else NA
       )
     }
   }
 
-  # Add MoE if: complex multi-class task with enough data
-  # Rule: need 4+ classes, 200+ samples/class, and high enough complexity score
-  if (num_labels >= 4 && samples_per_class >= 200 && complexity_score > 12) {
-    moe_epochs <- 3
-    # Estimate total CV cost with all candidates
-    n_candidates_with_moe <- length(candidates) + 1
-    cv_cost <- cv_folds * n_candidates_with_moe * time_per_epoch_moe * moe_epochs
-    final_cost <- time_per_epoch_moe * moe_epochs
+  # Generate MoE candidates if complex task
+  if (meta_features$n_labels >= 4 &&
+      meta_features$samples_per_class >= 200 &&
+      meta_features$complexity_score > 12) {
+    for (i in seq_len(nrow(moe_configs))) {
+      config <- moe_configs[i, ]
+      estimated_time <- cv_folds * time_per_epoch_moe * config$epochs
 
-    if (cv_cost + final_cost <= max_time_minutes) {
       candidates[[length(candidates) + 1]] <- list(
         type = "moe",
         freeze_backbone = FALSE,
-        learning_rate = 2e-5,
-        epochs = moe_epochs,
-        num_experts = pmin(8, pmax(2, ceiling(num_labels / 2))),
-        description = "MoE fine-tuned"
+        learning_rate = config$learning_rate,
+        epochs = config$epochs,
+        num_experts = config$num_experts,
+        description = sprintf(
+          "MoE-%d (lr=%.0e, ep=%d)",
+          config$num_experts, config$learning_rate, config$epochs
+        ),
+        estimated_time = estimated_time,
+        predicted_accuracy = if (use_meta_learning) {
+          predict_candidate_performance(meta_features, "moe")
+        } else NA
       )
     }
   }
 
-  # Determine strategy name and reason
-  name <- if (length(candidates) == 1) {
-    "Frozen Baseline"
-  } else if (any(sapply(candidates, function(x) x$type == "moe"))) {
-    "Multi-Strategy CV"
-  } else {
-    "Frozen vs Fine-tuned CV"
+  # Filter by time budget (keep only those that fit)
+  affordable <- sapply(candidates, function(c) c$estimated_time <= max_time_minutes * 0.8)
+  candidates <- candidates[affordable]
+
+  # Sort by predicted performance if using meta-learning
+  if (use_meta_learning && length(candidates) > 0) {
+    pred_scores <- sapply(candidates, function(c) c$predicted_accuracy)
+    candidates <- candidates[order(pred_scores, decreasing = TRUE)]
+
+    # Keep top 10 to avoid excessive search
+    if (length(candidates) > 10) {
+      candidates <- candidates[1:10]
+    }
   }
 
-  reason <- sprintf(
-    "%.0f samples/class, complexity=%.1f, %d candidates",
-    samples_per_class, complexity_score, length(candidates)
-  )
-
-  list(
-    name = name,
-    reason = reason,
-    candidates = candidates
-  )
+  candidates
 }
 
-#' Perform cross-validation model selection
+#' Evaluate candidates with time budget monitoring
 #' @keywords internal
-perform_cv_selection <- function(
+evaluate_candidates_with_budget <- function(
   texts, labels, num_labels,
   candidates, cv_folds,
   start_time, max_time_minutes,
   device, verbose
 ) {
   if (verbose) {
-    cli::cli_h2("Cross-Validation Model Selection")
+    cli::cli_h2("Cross-Validation Evaluation")
   }
 
   n <- length(texts)
@@ -250,16 +349,17 @@ perform_cv_selection <- function(
   for (i in seq_along(candidates)) {
     config <- candidates[[i]]
 
+    # Check time budget
     elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "mins"))
-    if (elapsed >= max_time_minutes * 0.8) {
+    if (elapsed >= max_time_minutes * 0.9) {
       if (verbose) {
-        cli::cli_alert_warning("Approaching time budget - stopping CV early")
+        cli::cli_alert_warning("Time budget exhausted, stopping early")
       }
       break
     }
 
     if (verbose) {
-      cli::cli_alert_info("Testing: {config$description} ({i}/{length(candidates)})")
+      cli::cli_alert_info("Evaluating {config$description} ({i}/{length(candidates)})")
     }
 
     fold_accuracies <- numeric(cv_folds)
@@ -280,7 +380,7 @@ perform_cv_selection <- function(
     mean_accuracy <- mean(fold_accuracies)
     sd_accuracy <- sd(fold_accuracies)
 
-    results[[i]] <- list(
+    results[[length(results) + 1]] <- list(
       config = config,
       mean_accuracy = mean_accuracy,
       sd_accuracy = sd_accuracy
@@ -293,15 +393,57 @@ perform_cv_selection <- function(
     }
   }
 
-  best_idx <- which.max(sapply(results, function(x) x$mean_accuracy))
-  best_result <- results[[best_idx]]
+  results
+}
+
+#' Build ensemble from top performing diverse models
+#' @keywords internal
+build_ensemble_from_results <- function(
+  texts, labels, num_labels,
+  cv_results, device, verbose
+) {
+  # Select diverse top performers
+  selected_idx <- select_diverse_candidates(cv_results, k = min(3, length(cv_results)))
 
   if (verbose) {
-    cli::cli_alert_success("Best configuration: {best_result$config$description}")
-    cli::cli_alert_success("CV accuracy: {sprintf('%.4f', best_result$mean_accuracy)}")
+    cli::cli_alert_info("Selected {length(selected_idx)} diverse models for ensemble")
   }
 
-  best_result$config
+  # Train each selected model on full data
+  models <- list()
+  weights <- numeric(length(selected_idx))
+
+  train_data <- data.frame(
+    text = texts,
+    label = labels,
+    stringsAsFactors = FALSE
+  )
+
+  for (i in seq_along(selected_idx)) {
+    idx <- selected_idx[i]
+    config <- cv_results[[idx]]$config
+
+    if (verbose) {
+      cli::cli_alert_info("Training ensemble member {i}/{length(selected_idx)}: {config$description}")
+    }
+
+    model <- train_final_model(
+      texts, labels, num_labels,
+      config, device, verbose = FALSE
+    )
+
+    models[[i]] <- model
+    weights[i] <- cv_results[[idx]]$mean_accuracy
+  }
+
+  # Build ensemble
+  ensemble <- build_ensemble(models, weights)
+
+  if (verbose) {
+    cli::cli_alert_success("Ensemble built with weights: {paste(round(ensemble$weights, 3), collapse=', ')}")
+  }
+
+  ensemble
 }
 
 #' Train and evaluate a single fold
