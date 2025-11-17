@@ -414,8 +414,15 @@ predict.granite_classifier <- function(
   predictions_list <- list()
   n_batches <- ceiling(length(texts) / batch_size)
 
+  pred_start_time <- Sys.time()
+  samples_processed <- 0
+  total_samples <- length(texts)
+  eta_str <- "calculating..."
+  progress_pct <- "0%"
+  speed_str <- ""
+
   cli::cli_progress_bar(
-    format = "Predicting | Batch {cli::pb_current}/{cli::pb_total}",
+    format = "Predicting | {progress_pct} | Batch {cli::pb_current}/{cli::pb_total} | {speed_str} | ETA: {eta_str}",
     total = n_batches,
     clear = FALSE
   )
@@ -446,10 +453,39 @@ predict.granite_classifier <- function(
       }
     })
 
-    cli::cli_progress_update()
+    samples_processed <- end_idx
+    progress_pct <- sprintf("%.1f%%", (samples_processed / total_samples) * 100)
+
+    elapsed <- as.numeric(difftime(Sys.time(), pred_start_time, units = "secs"))
+    samples_per_sec <- samples_processed / elapsed
+    speed_str <- sprintf("%.0f samples/s", samples_per_sec)
+
+    remaining_samples <- total_samples - samples_processed
+    eta_secs <- remaining_samples / samples_per_sec
+
+    eta_str <- if (eta_secs < 60) {
+      sprintf("%.0fs", eta_secs)
+    } else if (eta_secs < 3600) {
+      sprintf("%.1fm", eta_secs / 60)
+    } else {
+      sprintf("%.1fh", eta_secs / 3600)
+    }
+
+    cli::cli_progress_update(set = i, .envir = environment())
   }
 
   cli::cli_progress_done()
+
+  total_time <- as.numeric(difftime(Sys.time(), pred_start_time, units = "secs"))
+  time_str <- if (total_time < 60) {
+    sprintf("%.1fs", total_time)
+  } else if (total_time < 3600) {
+    sprintf("%.1fm", total_time / 60)
+  } else {
+    sprintf("%.2fh", total_time / 3600)
+  }
+  avg_speed <- total_samples / total_time
+  cli::cli_alert_success("Predicted {total_samples} samples in {time_str} ({sprintf('%.0f', avg_speed)} samples/s)")
 
   if (type == "class") {
     dplyr::mutate(data, prediction = unlist(predictions_list))
