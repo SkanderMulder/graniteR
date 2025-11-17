@@ -64,21 +64,26 @@ Limitations:
 - Embeddings do not adapt to domain-specific nuances
 - May underperform on highly specialized tasks
 
-### 2. End-to-End Fine-Tuning
+### 2. Classification Head Training (Feature-Based Fine-Tuning)
 
-This approach adds a classification head directly to the neural network and trains the entire model end-to-end. The embeddings evolve during training to better capture task-specific patterns.
+This approach adds a classification head on top of the frozen pretrained model. Only the classification head is trained while the base model parameters remain fixed. This is the default method in graniteR.
 
 Benefits:
-- Higher accuracy on specialized domains
-- Embeddings adapt to task requirements
-- Can handle multiple output heads (multi-task learning)
+- Very fast training (only head parameters updated)
+- Low memory requirements
+- Excellent performance with small datasets
+- Preserves pretrained knowledge
+- GPU accelerated but works well on CPU
 
 Limitations:
-- Requires GPU for efficiency
-- Needs more training data to avoid overfitting
-- Longer training time
-  
-For this malicious prompt detection task, we demonstrate the end-to-end fine-tuning approach as it provides better performance on security-critical applications.
+- Embeddings do not adapt (fixed pretrained representations)
+- May underperform full fine-tuning on very large datasets
+
+### 3. Full Fine-Tuning (Advanced)
+
+For advanced users, the entire model can be fine-tuned by unfreezing base parameters. This allows embeddings to adapt but requires more data and compute.
+
+For this malicious prompt detection task, we use the classification head training approach (option 2) as it provides excellent performance while being efficient and preventing overfitting.
 
 ## Loading the Dataset
 
@@ -279,14 +284,17 @@ test_data <- prompts[-train_idx, ]
 
 ## Training a Classifier
 
-Create and train a binary classifier for malicious prompt detection:                           
+Create and train a binary classifier for malicious prompt detection.
+
+**Important**: The classifier freezes the pretrained Granite model and only trains the classification head. This is efficient and prevents overfitting while leveraging pretrained knowledge.
 
 ```{r}
 # Create classifier (auto-detects GPU if available)
+# Only the classification head will be trainable
 classifier <- classifier(num_labels = 2)
 
 # Train with validation split
-# Increase batch_size to 16 or 32 if you have sufficient GPU memory
+# Note: Higher learning rates work well since only the head is trained
 classifier <- classifier |>
   train(
     train_data,
@@ -294,12 +302,18 @@ classifier <- classifier |>
     label,
     epochs = 5,
     batch_size = 16,
-    learning_rate = 2e-5,
+    learning_rate = 1e-3,  # Higher LR for head-only training
     validation_split = 0.2
   )
-                                                 
+
 ```
-The training process displays loss and validation accuracy for each epoch. Expect to see improvement over epochs as the model learns to distinguish malicious from benign prompts.
+
+The training process only updates the classification head parameters (typically 2-4 layers) while keeping the pretrained encoder frozen. This makes training:
+- **Fast**: Fewer parameters to update
+- **Memory-efficient**: Lower GPU memory requirements
+- **Stable**: Less prone to overfitting on small datasets
+
+You'll see loss and validation accuracy for each epoch. Expect rapid improvement in the first few epochs.
 
 ## Making Predictions
 

@@ -4,6 +4,10 @@
 #' binary classification (2 classes) and multi-class classification (3+ classes).
 #' The number of classes can be specified explicitly or inferred from training data.
 #'
+#' The pretrained base model is frozen and only the classification head is trained.
+#' This approach is more efficient and prevents overfitting on smaller datasets
+#' while leveraging the pretrained representations.
+#'
 #' @param num_labels Number of output classes (e.g., 2 for binary, 4 for multi-class).
 #'   If NULL and data is provided, will be inferred from unique labels.
 #' @param data Optional training data frame to infer num_labels from
@@ -11,6 +15,15 @@
 #' @param model_name Model identifier from Hugging Face Hub
 #' @param device Device to use ("cpu" or "cuda"). If NULL, automatically detects GPU availability.
 #' @return A classifier object with model and tokenizer
+#' @details
+#' The classifier uses a frozen pretrained model with only the classification head
+#' being trainable. This provides several advantages:
+#' \itemize{
+#'   \item Faster training (fewer parameters to update)
+#'   \item Lower memory requirements
+#'   \item Better generalization on small datasets
+#'   \item Preserves pretrained knowledge
+#' }
 #' @export
 #' @seealso \code{\link{train}}, \code{\link{predict}}
 #' @examplesIf requireNamespace("transformers")
@@ -55,6 +68,14 @@ classifier <- function(
 
   tokenizer <- granite_tokenizer(model_name)
 
+  # Verify parameter freezing
+  trainable_params <- sum(sapply(model$model$parameters(), function(p) p$requires_grad))
+  total_params <- length(model$model$parameters())
+
+  cli::cli_alert_info(
+    "Created classifier with {trainable_params} trainable parameters (head only) out of {total_params} total"
+  )
+
   structure(
     list(
       model = model,
@@ -72,6 +93,10 @@ classifier <- function(
 #' factor labels. Character and factor labels are automatically converted to
 #' integers (alphabetically for characters, by factor levels for factors).
 #'
+#' Only the classification head is trained while the base model remains frozen.
+#' This is efficient and effective for most classification tasks, requiring less
+#' data and training time compared to full fine-tuning.
+#'
 #' @param classifier Classifier object
 #' @param data Training data frame
 #' @param text_col Column name containing text (unquoted or string)
@@ -79,10 +104,19 @@ classifier <- function(
 #'   Can be integer, character, or factor.
 #' @param epochs Number of training epochs
 #' @param batch_size Batch size for training
-#' @param learning_rate Learning rate for optimizer
+#' @param learning_rate Learning rate for optimizer (typically higher than full
+#'   fine-tuning since only the head is trained)
 #' @param validation_split Fraction of data to use for validation
 #' @param verbose Whether to print training progress (default: TRUE)
 #' @return Updated classifier object with trained model
+#' @details
+#' The training process only updates the classification head parameters while
+#' keeping the pretrained encoder frozen. This typically requires:
+#' \itemize{
+#'   \item Higher learning rates (2e-5 to 1e-3) than full fine-tuning
+#'   \item Fewer epochs (3-10 typically sufficient)
+#'   \item Less training data to avoid overfitting
+#' }
 #' @export
 #' @seealso \code{\link{classifier}}, \code{\link{predict}}
 #' @examplesIf requireNamespace("transformers")

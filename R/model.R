@@ -73,6 +73,22 @@ granite_model <- function(
     }
   )
 
+  # Freeze base model parameters for classification/regression tasks
+  # Only train the classification head
+  if (task %in% c("classification", "regression")) {
+    # Freeze all base model parameters
+    for (param in model$base_model$parameters()) {
+      param$requires_grad <- FALSE
+    }
+
+    # Ensure classifier head is trainable
+    if (!is.null(model$classifier)) {
+      for (param in model$classifier$parameters()) {
+        param$requires_grad <- TRUE
+      }
+    }
+  }
+
   # Restore logging level
   if (!is.null(old_log_level)) {
     tryCatch({
