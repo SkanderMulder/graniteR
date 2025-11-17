@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = TRUE
 )
 ```
 
@@ -73,7 +73,7 @@ Limitations:
 - Requires GPU for efficiency
 - Needs more training data to avoid overfitting
 - Longer training time
-
+  
 For this malicious prompt detection task, we demonstrate the end-to-end fine-tuning approach as it provides better performance on security-critical applications.
 
 ## Loading the Dataset
@@ -83,8 +83,13 @@ library(graniteR)
 library(dplyr)
 
 # Load dataset from package
+# Option 1: Sample dataset (12,913 rows, faster for experimentation)
 data(malicious_prompts_sample, package = "graniteR")
 prompts <- malicious_prompts_sample
+
+# Option 2: Full dataset (373,646 rows, recommended for production models)
+# data(malicious_prompts_full, package = "graniteR")
+# prompts <- malicious_prompts_full
 
 # Examine structure
 glimpse(prompts)
@@ -94,6 +99,8 @@ The dataset contains:
 - `text`: The prompt content
 - `label`: Binary classification (0 = benign, 1 = malicious)
 - `source`: Origin of the data
+
+For this tutorial, we use the sample dataset for faster execution. For production models, use `malicious_prompts_full` which contains 373,646 labeled examples.
 
 ```{r}
 # Check class distribution
@@ -148,7 +155,7 @@ classifier <- classifier |>
     validation_split = 0.2
   )
                                                  
-
+```
 The training process displays loss and validation accuracy for each epoch. Expect to see improvement over epochs as the model learns to distinguish malicious from benign prompts.
 
 ## Making Predictions
