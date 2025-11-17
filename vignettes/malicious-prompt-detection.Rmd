@@ -50,7 +50,7 @@ The dataset contains prompts labeled as:
 
 ```{r data}
 data(malicious_prompt_sample)  # 1000 samples
-data(malicious_prompt_full)    # 10000 samples
+data(malicious_prompt_full)    
 
 glimpse(malicious_prompt_sample)
 ```
