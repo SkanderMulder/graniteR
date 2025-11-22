@@ -12,6 +12,8 @@
 ## Package Quality
 
 - Added minimum version requirement for processx dependency (>= 3.5.0)
+- Fixed LICENSE.md placeholder text with proper copyright information
+- Added cross-reference links (@seealso) to save/load functions for better documentation navigation
 
 # graniteR 0.1.0
 

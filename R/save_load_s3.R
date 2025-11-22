@@ -26,6 +26,7 @@
 #'   \item Config file: Model architecture, labels, device, freeze_backbone
 #' }
 #'
+#' @seealso \code{\link{classifier}}, \code{\link{train}}, \code{\link{predict}}, \code{\link{load_classifier}}
 #' @examples
 #' \dontrun{
 #' # Train and save
@@ -111,6 +112,7 @@ save_classifier_impl <- function(classifier, file) {
 #' clf <- load_classifier("models/my_model")
 #' }
 #'
+#' @seealso \code{\link{save_classifier}}, \code{\link{classifier}}, \code{\link{predict}}
 #' @export
 load_classifier <- function(file, device = NULL) {
   # Handle both "model" and "model_config.rds" inputs
