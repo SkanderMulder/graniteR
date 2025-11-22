@@ -1,3 +1,9 @@
+# graniteR (development)
+
+## Documentation
+
+- Enhanced package-level documentation with comprehensive description, examples, and function references
+
 # graniteR 0.1.0
 
 ## Initial Release
