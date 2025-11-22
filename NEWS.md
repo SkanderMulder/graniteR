@@ -9,6 +9,10 @@
 - Added test coverage reporting workflow with Codecov integration
 - Added coverage badge to README
 
+## Package Quality
+
+- Added minimum version requirement for processx dependency (>= 3.5.0)
+
 # graniteR 0.1.0
 
 ## Initial Release
