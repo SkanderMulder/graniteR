@@ -4,6 +4,11 @@
 
 - Enhanced package-level documentation with comprehensive description, examples, and function references
 
+## CI/CD
+
+- Added test coverage reporting workflow with Codecov integration
+- Added coverage badge to README
+
 # graniteR 0.1.0
 
 ## Initial Release
