@@ -141,7 +141,7 @@ clf_standard <- clf_standard |>
 ```{r moe-classifier}
 clf_moe <- moe_classifier(
   num_labels = 6,
-  num_experts = 4,
+  num_experts = 6,
   freeze_backbone = FALSE,
   dropout = 0.2,
   expert_depth = 2
@@ -194,7 +194,18 @@ prob_standard <- predict(
 )
 ```
 
+```{r save-classifier}
+save_classifier(clf_standard, file = "models/emotion_v1")
+save_classifier(clf_moe, file = "models/emotion_v2")
+
+load_classifier(file = "models/emotion_v1_config.rds")
+```
+
+
+
+
 ### MoE Predictions with Expert Weights
+
 
 ```{r moe-predictions}
 pred_moe <- predict(
@@ -217,7 +228,11 @@ expert_weights <- predict(
   text,
   type = "expert_weights"
 )
+
+
+
 ```
+
 
 The `expert_weights` output shows which experts were most active for each input, providing insights into expert specialization.
 
@@ -439,7 +454,7 @@ example_analysis |>
 ```{r hyperparameters, eval=FALSE}
 clf_moe_tuned <- moe_classifier(
   num_labels = 6,
-  num_experts = 6,
+  num_experts = 8,
   freeze_backbone = TRUE,
   hidden_dim = 512,
   dropout = 0.2

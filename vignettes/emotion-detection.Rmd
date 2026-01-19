@@ -436,6 +436,23 @@ cat(sprintf("Accuracy on high-confidence predictions: %.2f%%\n",
             mean(high_confidence$correct) * 100))
 ```
 
+
+
+```{r one-text}
+
+
+probabilities <- predict(
+  classifier,
+  test_data2,
+  text,
+  type = "class"
+)
+
+test_data2 = data.frame("text" =c('this is weird', 'so happy'))
+
+
+
+```
 ## Conclusion
 
 This vignette demonstrated using graniteR for multi-class emotion detection, achieving strong classification performance across six emotion categories. The classification head training approach provides excellent results while being efficient and preventing overfitting.

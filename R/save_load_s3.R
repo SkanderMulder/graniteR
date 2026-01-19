@@ -59,13 +59,28 @@ save_classifier_impl <- function(classifier, file) {
   weights_file <- paste0(file, "_weights.pt")
   config_file <- paste0(file, "_config.rds")
 
+  # Determine model type and extract PyTorch model
+  is_moe <- "moe_classifier" %in% class(classifier)
+  pytorch_model <- if (is_moe) {
+    classifier$model
+  } else {
+    classifier$model$model
+  }
+
+  # Extract device
+  device <- if (is_moe) {
+    classifier$device
+  } else {
+    classifier$model$device
+  }
+
   # Extract config
   config <- list(
-    model_type = if ("moe_classifier" %in% class(classifier)) "moe" else "standard",
+    model_type = if (is_moe) "moe" else "standard",
     num_labels = classifier$num_labels,
     model_name = classifier$tokenizer$model_name,
     freeze_backbone = classifier$freeze_backbone %||% TRUE,
-    device = classifier$device,
+    device = device,
     is_trained = classifier$is_trained
   )
 
@@ -75,7 +90,7 @@ save_classifier_impl <- function(classifier, file) {
 
   # Save PyTorch weights
   torch <- reticulate::import("torch")
-  torch$save(classifier$model$model$state_dict(), weights_file)
+  torch$save(pytorch_model$state_dict(), weights_file)
 
   # Save config with base R saveRDS
   base::saveRDS(config, config_file)
@@ -158,7 +173,13 @@ load_classifier <- function(file, device = NULL) {
   # Load weights
   torch <- reticulate::import("torch")
   state_dict <- torch$load(weights_file, map_location = device)
-  clf$model$model$load_state_dict(state_dict)
+
+  # Load into appropriate model structure
+  if (config$model_type == "moe") {
+    clf$model$load_state_dict(state_dict)
+  } else {
+    clf$model$model$load_state_dict(state_dict)
+  }
 
   clf$is_trained <- TRUE
 
