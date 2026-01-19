@@ -57,31 +57,39 @@ glimpse(malicious_prompt_sample)
 
 ## Training
 
-```{r train}
-# Simple approach
-clf <- classifier(num_labels = 2, freeze_backbone = TRUE)
-clf <- train(clf, malicious_prompt_sample, text, label, epochs = 5)
+```{r train, eval=FALSE}
+# Split data
+set.seed(42)
+n <- nrow(malicious_prompts_full)
+train_idx <- sample(n, size = floor(0.8 * n))
+train_data <- malicious_prompts_full[train_idx, ]
+test_data <- malicious_prompts_full[-train_idx, ]
 
-# Advanced approach with AutoML
-clf_advanced <- auto_classify(
-  malicious_prompt_full,
-  text,
-  label,
-  max_time_minutes = 30,
-  ensemble = TRUE
-)
+# Train classifier
+clf <- classifier(num_labels = 2, freeze_backbone = TRUE)
+clf <- train(clf, train_data, text, label, epochs = 3, batch_size = 8)
+
+# Save model
+save_classifier(clf, file = "models/malicious_prompts_standard")
+```
+
+## Loading Pre-trained Model
+
+```{r load-model, eval=TRUE}
+# Load pre-trained model
+clf <- load_classifier("models/malicious_prompts_standard")
+
+# Load data for evaluation
+data(malicious_prompts_full)
+set.seed(42)
+n <- nrow(malicious_prompts_full)
+train_idx <- sample(n, size = floor(0.8 * n))
+test_data <- malicious_prompts_full[-train_idx, ]
 ```
 
 ## Evaluation
 
 ```{r eval}
-# Split data
-train_data <- malicious_prompt_full |> slice_head(prop = 0.8)
-test_data <- malicious_prompt_full |> slice_tail(prop = 0.2)
-
-# Train
-clf <- train(classifier(2), train_data, text, label, epochs = 3)
-
 # Evaluate
 preds <- predict(clf, test_data, text)
 

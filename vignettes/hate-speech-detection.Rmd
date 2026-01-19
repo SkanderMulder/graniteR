@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE,
+  eval = FALSE,
   fig.width = 10,
   fig.height = 6,
   warning = FALSE,
@@ -195,7 +195,7 @@ cat(sprintf("Testing samples: %s\n", comma(nrow(test_data))))
 
 Create and train a binary classifier for hate speech detection:
 
-```{r}
+```{r training, eval=FALSE}
 classifier <- classifier(num_labels = 2)
 
 classifier <- classifier |>
@@ -208,9 +208,19 @@ classifier <- classifier |>
     learning_rate = 1e-3,
     validation_split = 0.2
   )
+
+save_classifier(classifier, file = "models/hate_speech_standard")
 ```
 
 The classification head is trained while keeping the pretrained Granite model frozen. This approach is efficient and helps prevent overfitting, which is particularly important given the class imbalance.
+
+## Loading Pre-trained Model
+
+For this vignette, we load a pre-trained model to show predictions:
+
+```{r load-model, eval=TRUE}
+classifier <- load_classifier("models/hate_speech_standard")
+```
 
 ## Making Predictions
 
