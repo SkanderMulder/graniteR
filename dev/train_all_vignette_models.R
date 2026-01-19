@@ -78,7 +78,8 @@ train_moe <- function(data, name, num_labels, num_experts = NULL, epochs = 5, ba
     expert_depth = 2
   )
 
-  clf <- clf |> train_moe(
+  clf <- train_moe(
+    clf,
     train_data,
     text,
     label,

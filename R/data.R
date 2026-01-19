@@ -266,7 +266,6 @@
 #'
 #' **For Actual Inference - Train a New Model**:
 #' \itemize{
-#'   \item Use \code{auto_classify()} for automatic selection
 #'   \item Use \code{moe_classifier()} for manual configuration
 #'   \item Models must be trained in the same R session where they are used
 #'   \item Cannot save and reload models for later use (reticulate limitation)
@@ -294,7 +293,7 @@
 #' }
 #'
 #' @seealso
-#' \code{\link{moe_classifier}}, \code{\link{auto_classify}}, \code{\link{classifier}}
+#' \code{\link{moe_classifier}}, \code{\link{classifier}}
 #'
 #' @examples
 #' \dontrun{
@@ -316,11 +315,7 @@
 #' # To create a WORKING model, train a new one in the same session:
 #' data(emotion_sample)
 #'
-#' # Option 1: Automatic (recommended)
-#' clf <- auto_classify(emotion_sample, text, label)
-#' predictions <- predict(clf, emotion_sample, text)  # This works!
-#'
-#' # Option 2: Manual MoE
+#' # Create and train an MoE classifier
 #' clf <- moe_classifier(num_labels = 6, num_experts = 4) |>
 #'   train_moe(emotion_sample, text, label, epochs = 3)
 #' predictions <- predict(clf, emotion_sample, text)  # This works!
