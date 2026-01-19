@@ -21,44 +21,12 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-This vignette demonstrates using graniteR for binary sentiment analysis on movie reviews. We use the IMDB dataset from HuggingFace, which is one of the most popular benchmarks for sentiment classification in NLP.
+This vignette demonstrates using graniteR for binary sentiment analysis on movie reviews using the IMDB dataset. We demonstrate two approaches:
 
-The dataset includes 50,000 movie reviews labeled as positive or negative, making it an ideal task for demonstrating graniteR's text classification capabilities. This use case illustrates:
+1. **Standard Classifier**: Frozen pretrained model with trainable classification head
+2. **Mixture of Experts (MoE)**: Multiple expert networks with specialized routing
 
-- Binary sentiment classification
-- Working with long-form text (movie reviews)
-- Fine-tuning transformer models for opinion mining
-- Evaluating model performance on balanced datasets
-
-## Prerequisites
-
-Before proceeding, ensure you have installed graniteR and its Python dependencies using UV:
-
-```bash
-# From the graniteR package directory
-./inst/bash/setup_python.sh
-
-# Then in R, configure the Python environment
-Sys.setenv(RETICULATE_PYTHON = ".venv/bin/python")
-```
-
-UV provides fast dependency installation (1-2 minutes). See the "Getting Started" vignette for detailed installation instructions.
-
-For this classification task, GPU acceleration is recommended but not required. If you have a CUDA-capable GPU, the training will be significantly faster.
-
-## Understanding the Task
-
-Sentiment analysis is the task of determining the emotional polarity of text. In binary sentiment classification, text is classified into two categories:
-
-- **Negative**: Reviews expressing dissatisfaction, disappointment, or dislike
-- **Positive**: Reviews expressing satisfaction, enjoyment, or appreciation
-
-This fundamental NLP task is widely used for:
-- Product review analysis
-- Customer feedback monitoring
-- Brand reputation tracking
-- Social media sentiment tracking
-- Market research
+The IMDB dataset includes 50,000 movie reviews labeled as positive or negative, making it an ideal benchmark for sentiment classification.
 
 ## Loading the Dataset
 
@@ -81,9 +49,7 @@ The dataset contains:
 - `label`: Binary label (0 = negative, 1 = positive)
 - `label_name`: Sentiment name (negative or positive)
 
-## Exploratory Data Analysis
-
-### Class Distribution
+## Class Distribution
 
 ```{r class-distribution, fig.height=5}
 class_stats <- reviews |>
@@ -108,93 +74,11 @@ ggplot(class_stats, aes(x = "", y = n, fill = label_name)) +
   labs(title = "Dataset Class Distribution")
 ```
 
-The IMDB dataset is perfectly balanced with equal numbers of positive and negative reviews, making it an ideal benchmark for sentiment classification.
-
-### Review Length Analysis
-
-```{r length-analysis, fig.height=6}
-reviews_analysis <- reviews |>
-  mutate(
-    char_length = nchar(text),
-    word_count = str_count(text, "\\S+")
-  )
-
-p1 <- ggplot(reviews_analysis, aes(x = char_length, fill = label_name)) +
-  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
-  scale_fill_manual(values = c("negative" = "#e74c3c", "positive" = "#2ecc71")) +
-  scale_x_continuous(labels = comma) +
-  scale_y_continuous(labels = comma) +
-  labs(
-    title = "Character Length Distribution by Sentiment",
-    x = "Character Count",
-    y = "Frequency",
-    fill = "Sentiment"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 14, face = "bold"),
-    legend.position = "top"
-  )
-
-p2 <- ggplot(reviews_analysis, aes(x = label_name, y = word_count, fill = label_name)) +
-  geom_violin(alpha = 0.7, show.legend = FALSE) +
-  geom_boxplot(width = 0.2, alpha = 0.5, outlier.alpha = 0.3, show.legend = FALSE) +
-  scale_fill_manual(values = c("negative" = "#e74c3c", "positive" = "#2ecc71")) +
-  scale_y_continuous(labels = comma) +
-  coord_cartesian(ylim = c(0, 1000)) +
-  labs(
-    title = "Word Count Distribution by Sentiment",
-    x = "",
-    y = "Word Count"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 14, face = "bold"))
-
-gridExtra::grid.arrange(p1, p2, ncol = 1)
-```
-
-```{r length-stats}
-reviews_analysis |>
-  group_by(label_name) |>
-  summarise(
-    samples = n(),
-    mean_chars = round(mean(char_length), 1),
-    median_chars = round(median(char_length), 1),
-    mean_words = round(mean(word_count), 1),
-    median_words = round(median(word_count), 1)
-  ) |>
-  knitr::kable(caption = "Review Length Statistics by Sentiment")
-```
-
-Movie reviews are typically longer than other text types, with an average of ~230 words. This makes them ideal for testing transformer models' ability to capture long-range dependencies.
-
-### Sample Reviews
-
-```{r sample-reviews}
-cat("Sample Positive Reviews:\n\n")
-reviews |>
-  filter(label_name == "positive") |>
-  slice_sample(n = 2) |>
-  pull(text) |>
-  substr(1, 300) |>
-  paste0("...") |>
-  cat(sep = "\n\n")
-
-cat("\n\nSample Negative Reviews:\n\n")
-reviews |>
-  filter(label_name == "negative") |>
-  slice_sample(n = 2) |>
-  pull(text) |>
-  substr(1, 300) |>
-  paste0("...") |>
-  cat(sep = "\n\n")
-```
+The IMDB dataset is perfectly balanced with equal numbers of positive and negative reviews.
 
 ## Data Preparation
 
-Split the data into training and testing sets:
-
-```{r}
+```{r data-prep}
 set.seed(42)
 
 n <- nrow(reviews)
@@ -207,14 +91,14 @@ cat(sprintf("Training samples: %s\n", comma(nrow(train_data))))
 cat(sprintf("Testing samples: %s\n", comma(nrow(test_data))))
 ```
 
-## Training a Classifier
+# Approach 1: Standard Classifier
 
-Create and train a binary sentiment classifier:
+## Training
 
-```{r training, eval=FALSE}
-classifier <- classifier(num_labels = 2)
+```{r training-standard, eval=FALSE}
+clf_standard <- classifier(num_labels = 2)
 
-classifier <- classifier |>
+clf_standard <- clf_standard |>
   train(
     train_data,
     text,
@@ -225,41 +109,30 @@ classifier <- classifier |>
     validation_split = 0.2
   )
 
-save_classifier(classifier, file = "models/sentiment_standard")
+save_classifier(clf_standard, file = "models/sentiment_standard")
 ```
 
-The classification head is trained while keeping the pretrained Granite model frozen. This approach is efficient and works well for sentiment analysis.
+The classification head is trained while keeping the pretrained Granite model frozen.
 
 ## Loading Pre-trained Model
 
-For this vignette, we load a pre-trained model to show predictions:
-
-```{r load-model, eval=TRUE}
-classifier <- load_classifier("models/sentiment_standard")
+```{r load-model-standard, eval=FALSE}
+clf_standard <- load_classifier("models/sentiment_standard")
 ```
 
 ## Making Predictions
 
-Apply the trained classifier to the test set:
-
-```{r}
-predictions <- predict(
-  classifier,
+```{r predictions-standard}
+pred_standard <- predict(
+  clf_standard,
   test_data,
   text,
   type = "class"
 )
 
-probabilities <- predict(
-  classifier,
-  test_data,
-  text,
-  type = "prob"
-)
-
-predictions |>
+pred_standard |>
   mutate(
-    review_preview = substr(text, 1, 100),
+    review_preview = substr(text, 1, 80),
     true_sentiment = c("negative", "positive")[label + 1],
     pred_sentiment = c("negative", "positive")[prediction + 1]
   ) |>
@@ -270,48 +143,40 @@ predictions |>
 
 ## Model Evaluation
 
-### Performance Metrics
+```{r metrics-standard}
+tp_std <- sum(pred_standard$prediction == 1 & pred_standard$label == 1)
+fp_std <- sum(pred_standard$prediction == 1 & pred_standard$label == 0)
+fn_std <- sum(pred_standard$prediction == 0 & pred_standard$label == 1)
+tn_std <- sum(pred_standard$prediction == 0 & pred_standard$label == 0)
 
-```{r metrics}
-tp <- sum(predictions$prediction == 1 & predictions$label == 1)
-fp <- sum(predictions$prediction == 1 & predictions$label == 0)
-fn <- sum(predictions$prediction == 0 & predictions$label == 1)
-tn <- sum(predictions$prediction == 0 & predictions$label == 0)
+accuracy_standard <- (tp_std + tn_std) / (tp_std + tn_std + fp_std + fn_std)
+precision_standard <- tp_std / (tp_std + fp_std)
+recall_standard <- tp_std / (tp_std + fn_std)
+f1_standard <- 2 * (precision_standard * recall_standard) / (precision_standard + recall_standard)
 
-accuracy <- (tp + tn) / (tp + tn + fp + fn)
-precision <- tp / (tp + fp)
-recall <- tp / (tp + fn)
-f1 <- 2 * (precision * recall) / (precision + recall)
-specificity <- tn / (tn + fp)
-
-metrics_df <- data.frame(
-  Metric = c("Accuracy", "Precision", "Recall", "F1 Score", "Specificity"),
-  Value = c(accuracy, precision, recall, f1, specificity)
-)
-
-knitr::kable(metrics_df, digits = 4, caption = "Model Performance Metrics")
+cat(sprintf("Standard Classifier Accuracy: %.2f%%\n", accuracy_standard * 100))
 ```
 
 ### Confusion Matrix
 
-```{r confusion-matrix, fig.height=6}
-conf_matrix <- data.frame(
+```{r confusion-matrix-standard, fig.height=6}
+conf_matrix_std <- data.frame(
   Predicted = c("Negative", "Negative", "Positive", "Positive"),
   Actual = c("Negative", "Positive", "Negative", "Positive"),
-  Count = c(tn, fn, fp, tp)
+  Count = c(tn_std, fn_std, fp_std, tp_std)
 ) |>
   mutate(
     Percentage = Count / sum(Count) * 100,
     Label = sprintf("%s\n(%.1f%%)", comma(Count), Percentage)
   )
 
-ggplot(conf_matrix, aes(x = Actual, y = Predicted, fill = Count)) +
+ggplot(conf_matrix_std, aes(x = Actual, y = Predicted, fill = Count)) +
   geom_tile(color = "white", size = 2) +
   geom_text(aes(label = Label), size = 7, fontface = "bold") +
   scale_fill_gradient(low = "#ecf0f1", high = "#3498db", labels = comma) +
   labs(
-    title = "Confusion Matrix: Sentiment Analysis",
-    subtitle = sprintf("Overall Accuracy: %.2f%%", accuracy * 100),
+    title = "Confusion Matrix: Standard Classifier",
+    subtitle = sprintf("Accuracy: %.2f%%", accuracy_standard * 100),
     x = "Actual Sentiment",
     y = "Predicted Sentiment"
   ) +
@@ -320,257 +185,183 @@ ggplot(conf_matrix, aes(x = Actual, y = Predicted, fill = Count)) +
     plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
     plot.subtitle = element_text(size = 12, hjust = 0.5),
     axis.text = element_text(size = 12),
-    axis.title = element_text(size = 13, face = "bold"),
     legend.position = "right"
   ) +
   coord_fixed()
 ```
 
-### Performance by Class
+# Approach 2: Mixture of Experts (MoE)
 
-```{r class-performance, fig.height=5}
-class_metrics <- data.frame(
-  Class = rep(c("Negative", "Positive"), each = 3),
-  Metric = rep(c("Precision", "Recall", "F1 Score"), 2),
-  Value = c(
-    tn / (tn + fn),
-    tn / (tn + fp),
-    2 * (tn / (tn + fn)) * (tn / (tn + fp)) / ((tn / (tn + fn)) + (tn / (tn + fp))),
-    precision,
-    recall,
-    f1
-  )
+The MoE approach uses multiple specialized expert networks with a gating mechanism that routes examples to the most appropriate expert.
+
+## Training
+
+```{r training-moe, eval=FALSE}
+clf_moe <- moe_classifier(
+  num_labels = 2,
+  num_experts = 3,
+  freeze_backbone = FALSE,
+  dropout = 0.2,
+  expert_depth = 2
 )
 
-ggplot(class_metrics, aes(x = Metric, y = Value, fill = Class)) +
-  geom_col(position = "dodge", width = 0.7) +
-  geom_text(aes(label = sprintf("%.3f", Value)),
-            position = position_dodge(width = 0.7),
-            vjust = -0.5, size = 4) +
-  scale_fill_manual(values = c("Negative" = "#e74c3c", "Positive" = "#2ecc71")) +
-  scale_y_continuous(limits = c(0, 1.1), labels = percent) +
-  labs(
-    title = "Performance Metrics by Sentiment Class",
-    x = "",
-    y = "Score",
-    fill = "Sentiment"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 14, face = "bold"),
-    legend.position = "top"
-  )
+clf_moe <- train_moe(
+  clf_moe,
+  train_data,
+  text,
+  label,
+  epochs = 3,
+  batch_size = 8
+)
+
+save_classifier(clf_moe, file = "models/sentiment_moe")
 ```
 
-### Probability Distribution
+## Loading Pre-trained MoE Model
 
-```{r prob-distribution, fig.height=6}
-prob_analysis <- probabilities |>
+```{r load-model-moe, eval=FALSE}
+clf_moe <- load_classifier("models/sentiment_moe")
+```
+
+## Making Predictions
+
+```{r predictions-moe}
+pred_moe <- predict(
+  clf_moe,
+  test_data,
+  text,
+  type = "class"
+)
+
+pred_moe |>
   mutate(
-    actual_sentiment = ifelse(test_data$label[1:n()] == 1, "Positive", "Negative"),
-    positive_prob = prob_2,
-    correct = (prob_2 > 0.5 & test_data$label[1:n()] == 1) |
-              (prob_2 <= 0.5 & test_data$label[1:n()] == 0)
-  )
-
-ggplot(prob_analysis, aes(x = positive_prob, fill = actual_sentiment)) +
-  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
-  geom_vline(xintercept = 0.5, linetype = "dashed", color = "black", size = 1) +
-  scale_fill_manual(values = c("Negative" = "#e74c3c", "Positive" = "#2ecc71")) +
-  scale_y_continuous(labels = comma) +
-  labs(
-    title = "Predicted Probability Distribution",
-    subtitle = "Dashed line shows classification threshold (0.5)",
-    x = "Probability of Positive Sentiment",
-    y = "Count",
-    fill = "Actual Sentiment"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 14, face = "bold"),
-    plot.subtitle = element_text(size = 11),
-    legend.position = "top"
-  )
+    review_preview = substr(text, 1, 80),
+    true_sentiment = c("negative", "positive")[label + 1],
+    pred_sentiment = c("negative", "positive")[prediction + 1]
+  ) |>
+  select(review_preview, true_sentiment, pred_sentiment) |>
+  head(10) |>
+  knitr::kable()
 ```
 
-## Error Analysis
+## Model Evaluation
 
-### Confidence Analysis
+```{r metrics-moe}
+tp_moe <- sum(pred_moe$prediction == 1 & pred_moe$label == 1)
+fp_moe <- sum(pred_moe$prediction == 1 & pred_moe$label == 0)
+fn_moe <- sum(pred_moe$prediction == 0 & pred_moe$label == 1)
+tn_moe <- sum(pred_moe$prediction == 0 & pred_moe$label == 0)
 
-```{r confidence-analysis, fig.height=5}
-confidence_data <- probabilities |>
+accuracy_moe <- (tp_moe + tn_moe) / (tp_moe + tn_moe + fp_moe + fn_moe)
+precision_moe <- tp_moe / (tp_moe + fp_moe)
+recall_moe <- tp_moe / (tp_moe + fn_moe)
+f1_moe <- 2 * (precision_moe * recall_moe) / (precision_moe + recall_moe)
+
+cat(sprintf("MoE Classifier Accuracy: %.2f%%\n", accuracy_moe * 100))
+```
+
+### Confusion Matrix
+
+```{r confusion-matrix-moe, fig.height=6}
+conf_matrix_moe <- data.frame(
+  Predicted = c("Negative", "Negative", "Positive", "Positive"),
+  Actual = c("Negative", "Positive", "Negative", "Positive"),
+  Count = c(tn_moe, fn_moe, fp_moe, tp_moe)
+) |>
   mutate(
-    true_sentiment = ifelse(test_data$label[1:n()] == 1, "Positive", "Negative"),
-    confidence = pmax(prob_1, prob_2),
-    correct = (prob_2 > 0.5 & test_data$label[1:n()] == 1) |
-              (prob_2 <= 0.5 & test_data$label[1:n()] == 0),
-    prediction_type = ifelse(correct, "Correct", "Incorrect")
+    Percentage = Count / sum(Count) * 100,
+    Label = sprintf("%s\n(%.1f%%)", comma(Count), Percentage)
   )
 
-ggplot(confidence_data, aes(x = confidence, fill = prediction_type)) +
-  geom_histogram(bins = 30, alpha = 0.8) +
-  facet_wrap(~true_sentiment, ncol = 1) +
-  scale_fill_manual(values = c("Correct" = "#27ae60", "Incorrect" = "#c0392b")) +
-  scale_y_continuous(labels = comma) +
+ggplot(conf_matrix_moe, aes(x = Actual, y = Predicted, fill = Count)) +
+  geom_tile(color = "white", size = 2) +
+  geom_text(aes(label = Label), size = 7, fontface = "bold") +
+  scale_fill_gradient(low = "#ecf0f1", high = "#9b59b6", labels = comma) +
   labs(
-    title = "Prediction Confidence Distribution by Outcome",
-    x = "Model Confidence",
-    y = "Count",
-    fill = "Prediction"
+    title = "Confusion Matrix: MoE Classifier",
+    subtitle = sprintf("Accuracy: %.2f%%", accuracy_moe * 100),
+    x = "Actual Sentiment",
+    y = "Predicted Sentiment"
   ) +
   theme_minimal() +
   theme(
-    plot.title = element_text(size = 14, face = "bold"),
-    legend.position = "top",
-    strip.text = element_text(size = 12, face = "bold")
-  )
-```
-
-### Misclassified Reviews
-
-```{r error-examples}
-misclassified <- predictions |>
-  filter(prediction != label) |>
-  mutate(
-    true_sentiment = ifelse(label == 1, "Positive", "Negative"),
-    pred_sentiment = ifelse(prediction == 1, "Positive", "Negative")
-  )
-
-cat(sprintf("Misclassified reviews: %s (%.2f%% of total)\n\n",
-            comma(nrow(misclassified)),
-            nrow(misclassified) / nrow(predictions) * 100))
-
-cat("Examples of misclassified reviews:\n\n")
-misclassified |>
-  slice_sample(n = min(3, nrow(misclassified))) |>
-  mutate(text_preview = substr(text, 1, 200)) |>
-  select(text_preview, true_sentiment, pred_sentiment) |>
-  knitr::kable(col.names = c("Review Preview", "True", "Predicted"))
-```
-
-## Advanced Analysis
-
-### ROC Curve
-
-```{r roc-curve, fig.height=6}
-thresholds <- seq(0, 1, by = 0.01)
-roc_data <- lapply(thresholds, function(thresh) {
-  pred_class <- ifelse(probabilities$prob_2 > thresh, 1, 0)
-  actual <- test_data$label[1:nrow(probabilities)]
-
-  tp <- sum(pred_class == 1 & actual == 1)
-  fp <- sum(pred_class == 1 & actual == 0)
-  fn <- sum(pred_class == 0 & actual == 1)
-  tn <- sum(pred_class == 0 & actual == 0)
-
-  tpr <- tp / (tp + fn)
-  fpr <- fp / (fp + tn)
-
-  data.frame(threshold = thresh, tpr = tpr, fpr = fpr)
-}) |> bind_rows()
-
-auc <- sum(diff(roc_data$fpr) * (head(roc_data$tpr, -1) + tail(roc_data$tpr, -1)) / 2)
-
-ggplot(roc_data, aes(x = fpr, y = tpr)) +
-  geom_line(color = "#3498db", size = 1.5) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50") +
-  annotate("text", x = 0.7, y = 0.3,
-           label = sprintf("AUC = %.4f", abs(auc)),
-           size = 6, fontface = "bold") +
-  labs(
-    title = "ROC Curve: Sentiment Analysis",
-    subtitle = "Receiver Operating Characteristic",
-    x = "False Positive Rate",
-    y = "True Positive Rate (Recall)"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 16, face = "bold"),
-    plot.subtitle = element_text(size = 12)
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 12),
+    legend.position = "right"
   ) +
   coord_fixed()
 ```
 
-## Use Cases and Applications
+# Comparing Approaches
 
-Sentiment analysis has numerous real-world applications:
+```{r comparison}
+comparison <- data.frame(
+  Approach = c("Standard Classifier", "MoE Classifier"),
+  Accuracy = c(accuracy_standard, accuracy_moe),
+  Precision = c(precision_standard, precision_moe),
+  Recall = c(recall_standard, recall_moe),
+  F1_Score = c(f1_standard, f1_moe),
+  Training_Time = c("Fast", "Moderate"),
+  Model_Size = c("Small", "Large")
+)
 
-### Customer Feedback Analysis
-
-```{r}
-cat("Use Case: Analyzing product reviews\n")
-cat("- Track customer satisfaction over time\n")
-cat("- Identify pain points in negative reviews\n")
-cat("- Highlight positive aspects mentioned by customers\n")
+knitr::kable(comparison, digits = 4, caption = "Comparison of Classification Approaches")
 ```
 
-### Social Media Monitoring
+### Performance Comparison
 
-```{r}
-cat("Use Case: Brand reputation management\n")
-cat("- Monitor brand mentions and sentiment trends\n")
-cat("- Identify PR crises early through negative sentiment spikes\n")
-cat("- Measure campaign effectiveness through sentiment shifts\n")
-```
+```{r performance-comparison, fig.height=6}
+metrics_comparison <- data.frame(
+  Approach = rep(c("Standard", "MoE"), each = 4),
+  Metric = rep(c("Accuracy", "Precision", "Recall", "F1 Score"), 2),
+  Value = c(accuracy_standard, precision_standard, recall_standard, f1_standard,
+            accuracy_moe, precision_moe, recall_moe, f1_moe)
+)
 
-### Market Research
-
-```{r}
-cat("Use Case: Product launch feedback\n")
-cat("- Gauge initial reception of new products\n")
-cat("- Compare sentiment across different demographics\n")
-cat("- Track sentiment evolution through product lifecycle\n")
-```
-
-## Deployment Considerations
-
-For production deployment:
-
-1. **Balanced Training**: Ensure training data reflects real-world class distribution
-2. **Regular Retraining**: Update models as language patterns evolve
-3. **Domain Adaptation**: Fine-tune on domain-specific data (e.g., product reviews vs. social media)
-4. **Threshold Tuning**: Adjust based on business needs (precision vs. recall tradeoff)
-5. **Monitoring**: Track prediction distributions to detect data drift
-
-### Example: Confidence-Based Routing
-
-```{r confidence-routing}
-routing_analysis <- confidence_data |>
-  mutate(
-    routing = case_when(
-      confidence >= 0.9 ~ "Automatic",
-      confidence >= 0.6 ~ "Review Queue",
-      TRUE ~ "Manual Review"
-    )
-  ) |>
-  count(routing) |>
-  mutate(percentage = n / sum(n) * 100)
-
-cat("Confidence-based routing strategy:\n\n")
-routing_analysis |>
-  mutate(
-    routing = factor(routing, levels = c("Automatic", "Review Queue", "Manual Review"))
-  ) |>
-  arrange(routing) |>
-  knitr::kable(
-    col.names = c("Routing Decision", "Count", "Percentage"),
-    digits = 1
+ggplot(metrics_comparison, aes(x = Metric, y = Value, fill = Approach)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = sprintf("%.3f", Value)),
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 4) +
+  scale_fill_manual(
+    values = c("Standard" = "#3498db", "MoE" = "#9b59b6"),
+    labels = c("Standard Classifier", "MoE Classifier")
+  ) +
+  scale_y_continuous(limits = c(0, 1.1), labels = percent) +
+  labs(
+    title = "Performance Comparison: Standard vs MoE",
+    x = "",
+    y = "Score",
+    fill = "Approach"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
   )
 ```
 
 ## Conclusion
 
-This vignette demonstrated using graniteR for binary sentiment analysis on movie reviews, achieving strong classification performance on the IMDB benchmark dataset. The classification head training approach provides excellent results while being efficient.
+This vignette demonstrated two approaches for binary sentiment analysis on movie reviews with graniteR:
 
-Key takeaways:
-- Binary sentiment analysis is a foundational NLP task with broad applications
-- Balanced datasets simplify training and evaluation
-- Confidence-based filtering enables hybrid human-AI workflows
-- The frozen-encoder approach works exceptionally well for sentiment classification
+**Standard Classifier:**
+- Fast training (frozen backbone)
+- Efficient inference
+- Good baseline performance
+- Ideal for most use cases
+
+**MoE Classifier:**
+- Longer training time (fine-tuned backbone)
+- Multiple specialized experts
+- Potentially higher accuracy
+- Better for complex, nuanced sentiment
+
+Both approaches leverage IBM's Granite embedding models and achieve strong performance on the IMDB benchmark dataset.
 
 ## References
 
 - Granite Embedding R2 Models (2025): https://arxiv.org/html/2508.21085v1
 - IMDB Dataset: https://huggingface.co/datasets/imdb
 - IBM Granite Models: https://huggingface.co/ibm-granite
-- Transformers Library: https://huggingface.co/docs/transformers

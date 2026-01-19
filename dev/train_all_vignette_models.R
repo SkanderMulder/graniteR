@@ -84,10 +84,7 @@ train_moe <- function(data, name, num_labels, num_experts = NULL, epochs = 5, ba
     text,
     label,
     epochs = epochs,
-    batch_size = batch_size,
-    learning_rate = lr,
-    validation_split = 0.2,
-    verbose = TRUE
+    batch_size = batch_size
   )
 
   save_path <- paste0("models/", name, "_moe")
