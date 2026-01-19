@@ -88,9 +88,47 @@ save_classifier_impl <- function(classifier, file) {
     config$num_experts <- classifier$num_experts
   }
 
-  # Save PyTorch weights
+  # Save PyTorch weights with smart compression
   torch <- reticulate::import("torch")
-  torch$save(pytorch_model$state_dict(), weights_file)
+  state_dict <- pytorch_model$state_dict()
+
+  # For frozen models, only save trainable parameters (huge size reduction)
+  # For unfrozen models, save everything in FP16
+  if (config$freeze_backbone) {
+    # Save only classifier head (typically <5MB vs 570MB)
+    state_dict_to_save <- reticulate::dict()
+    saved_keys <- 0
+    for (key in names(state_dict)) {
+      # Save only head/classifier layers, skip backbone
+      if (grepl("(head\\.|classifier\\.|classification_head\\.)", key)) {
+        tensor <- state_dict[[key]]
+        # Still use FP16 for additional compression
+        if (grepl("float32", as.character(tensor$dtype))) {
+          state_dict_to_save[[key]] <- tensor$half()
+        } else {
+          state_dict_to_save[[key]] <- tensor
+        }
+        saved_keys <- saved_keys + 1
+      }
+    }
+    torch$save(state_dict_to_save, weights_file)
+    cli::cli_alert_info("Saved {saved_keys} classifier head parameters (backbone excluded)")
+  } else {
+    # For unfrozen models, save everything in FP16
+    state_dict_fp16 <- reticulate::dict()
+    fp32_converted <- 0
+    for (key in names(state_dict)) {
+      tensor <- state_dict[[key]]
+      if (grepl("float32", as.character(tensor$dtype))) {
+        state_dict_fp16[[key]] <- tensor$half()
+        fp32_converted <- fp32_converted + 1
+      } else {
+        state_dict_fp16[[key]] <- tensor
+      }
+    }
+    torch$save(state_dict_fp16, weights_file)
+    cli::cli_alert_info("Saved full model in FP16 ({fp32_converted} tensors, 50% reduction)")
+  }
 
   # Save config with base R saveRDS
   base::saveRDS(config, config_file)
@@ -172,13 +210,38 @@ load_classifier <- function(file, device = NULL) {
 
   # Load weights
   torch <- reticulate::import("torch")
-  state_dict <- torch$load(weights_file, map_location = device)
+  saved_state_dict <- torch$load(weights_file, map_location = device)
 
-  # Load into appropriate model structure
-  if (config$model_type == "moe") {
-    clf$model$load_state_dict(state_dict)
-  } else {
-    clf$model$model$load_state_dict(state_dict)
+  # Get current model state
+  pytorch_model <- if (config$model_type == "moe") clf$model else clf$model$model
+  current_state_dict <- pytorch_model$state_dict()
+
+  # Convert FP16 back to FP32 and merge with current state
+  # This allows partial loading (e.g., only classifier head)
+  fp16_converted <- 0
+  for (key in names(saved_state_dict)) {
+    if (key %in% names(current_state_dict)) {
+      tensor <- saved_state_dict[[key]]
+      # Convert FP16 tensors back to FP32
+      if (grepl("float16", as.character(tensor$dtype))) {
+        current_state_dict[[key]] <- tensor$float()
+        fp16_converted <- fp16_converted + 1
+      } else {
+        current_state_dict[[key]] <- tensor
+      }
+    }
+  }
+
+  # Load the merged state dict
+  pytorch_model$load_state_dict(current_state_dict)
+
+  num_loaded <- length(names(saved_state_dict))
+  num_total <- length(names(current_state_dict))
+
+  if (num_loaded < num_total) {
+    cli::cli_alert_info("Loaded {num_loaded}/{num_total} parameters (classifier head only)")
+  } else if (fp16_converted > 0) {
+    cli::cli_alert_info("Loaded {num_loaded} FP16 tensors and converted to FP32")
   }
 
   clf$is_trained <- TRUE
