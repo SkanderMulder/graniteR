@@ -52,7 +52,7 @@ train_standard <- function(data, name, num_labels, epochs = 5, batch_size = 50, 
 }
 
 # Helper function to train and save MoE classifier
-train_moe <- function(data, name, num_labels, num_experts = NULL, epochs = 5, batch_size = 8, lr = 2e-5) {
+train_moe_model <- function(data, name, num_labels, num_experts = NULL, epochs = 5, batch_size = 8, lr = 2e-5) {
   cat("\n", strrep("=", 70), "\n")
   cat("Training MoE Classifier:", name, "\n")
   cat(strrep("=", 70), "\n\n")
@@ -113,7 +113,7 @@ data(emotion_full)
 train_standard(emotion_full, "emotion", num_labels = 6, epochs = 5, batch_size = 50)
 
 cat("\n[2/8] Emotion Detection - MoE\n")
-train_moe(emotion_full, "emotion", num_labels = 6, num_experts = 6, epochs = 5, batch_size = 8)
+train_moe_model(emotion_full, "emotion", num_labels = 6, num_experts = 6, epochs = 5, batch_size = 8)
 
 # 2. Sentiment Analysis (2 classes)
 cat("\n[3/8] Sentiment Analysis - Standard\n")
@@ -121,7 +121,7 @@ data(sentiment_imdb_full)
 train_standard(sentiment_imdb_full, "sentiment", num_labels = 2, epochs = 3, batch_size = 8)
 
 cat("\n[4/8] Sentiment Analysis - MoE\n")
-train_moe(sentiment_imdb_full, "sentiment", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 8)
+train_moe_model(sentiment_imdb_full, "sentiment", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 8)
 
 # 3. Hate Speech Detection (2 classes)
 cat("\n[5/8] Hate Speech Detection - Standard\n")
@@ -129,7 +129,7 @@ data(hate_speech_full)
 train_standard(hate_speech_full, "hate_speech", num_labels = 2, epochs = 3, batch_size = 8)
 
 cat("\n[6/8] Hate Speech Detection - MoE\n")
-train_moe(hate_speech_full, "hate_speech", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 8)
+train_moe_model(hate_speech_full, "hate_speech", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 8)
 
 # 4. Malicious Prompts Detection (2 classes)
 cat("\n[7/8] Malicious Prompts - Standard\n")
@@ -137,7 +137,7 @@ data(malicious_prompts_full)
 train_standard(malicious_prompts_full, "malicious_prompts", num_labels = 2, epochs = 3, batch_size = 8)
 
 cat("\n[8/8] Malicious Prompts - MoE\n")
-train_moe(malicious_prompts_full, "malicious_prompts", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 8)
+train_moe_model(malicious_prompts_full, "malicious_prompts", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 8)
 
 # ============================================================================
 # Verification: Load all models and test
