@@ -26,18 +26,18 @@ library(graniteR)
 library(dplyr)
 
 # Load data
-data(malicious_prompt_sample)
+data(malicious_prompts_sample, package = "graniteR")
 
 # Train classifier
 clf <- auto_classify(
-  malicious_prompt_sample,
+  malicious_prompts_sample,
   text,
   label,
   max_time_minutes = 15
 )
 
 # Predict
-test <- malicious_prompt_sample |> slice_sample(n = 100)
+test <- malicious_prompts_sample |> slice_sample(n = 1000)
 predictions <- predict(clf, test, text)
 table(predictions$prediction, test$label)
 ```
