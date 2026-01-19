@@ -354,6 +354,8 @@ evaluate_candidates_with_budget <- function(
   results <- list()
 
   for (i in seq_along(candidates)) {
+    check_interrupt(model = NULL, device = device)
+
     config <- candidates[[i]]
 
     # Check time budget
@@ -372,6 +374,8 @@ evaluate_candidates_with_budget <- function(
     fold_accuracies <- numeric(cv_folds)
 
     for (fold in 1:cv_folds) {
+      check_interrupt(model = NULL, device = device)
+
       val_idx <- which(fold_indices == fold)
       train_idx <- which(fold_indices != fold)
 
@@ -427,6 +431,8 @@ build_ensemble_from_results <- function(
   )
 
   for (i in seq_along(selected_idx)) {
+    check_interrupt(model = NULL, device = device)
+
     idx <- selected_idx[i]
     config <- cv_results[[idx]]$config
 

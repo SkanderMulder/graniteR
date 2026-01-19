@@ -26,6 +26,28 @@ to_device <- function(encodings, labels = NULL, device = "cpu") {
   list(encodings = encodings, labels = labels)
 }
 
+# Check for pending R interrupts and clean up Python resources if interrupted
+check_interrupt <- function(model = NULL, device = "cpu") {
+  tryCatch({
+    Sys.sleep(0)
+  }, interrupt = function(e) {
+    if (!is.null(model)) {
+      tryCatch({
+        if (!is.null(model$zero_grad)) {
+          model$zero_grad()
+        }
+      }, error = function(e) {})
+    }
+    if (device == "cuda") {
+      tryCatch({
+        torch$cuda$empty_cache()
+      }, error = function(e) {})
+    }
+    stop("Training interrupted by user", call. = FALSE)
+  })
+  invisible(NULL)
+}
+
 #' Check system capabilities for graniteR
 #'
 #' Checks Python environment, CUDA availability, and provides system information.
