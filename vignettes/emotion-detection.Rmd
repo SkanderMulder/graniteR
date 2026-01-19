@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE,
+  eval = FALSE,
   fig.width = 10,
   fig.height = 6,
   warning = FALSE,
@@ -23,11 +23,10 @@ knitr::opts_chunk$set(
 
 This vignette demonstrates using graniteR for multi-class emotion detection. We use the emotion dataset from HuggingFace (dair-ai/emotion), which contains text samples labeled with six basic emotions.
 
-The dataset includes 20,000 labeled examples for training robust emotion classifiers. Key features:
+The dataset includes 20,000 labeled examples for training robust emotion classifiers. We demonstrate two approaches:
 
-- Multi-class text classification (6 emotions)
-- Transfer learning with frozen pretrained models
-- Fast training (classification head only)
+1. **Standard Classifier**: Frozen pretrained model with trainable classification head
+2. **Mixture of Experts (MoE)**: Multiple expert networks with specialized routing
 
 ## Loading the Dataset
 
@@ -95,12 +94,14 @@ cat(sprintf("Training samples: %s\n", comma(nrow(train_data))))
 cat(sprintf("Testing samples: %s\n", comma(nrow(test_data))))
 ```
 
-## Training a Classifier
+# Approach 1: Standard Classifier
 
-```{r training, eval=FALSE}
-classifier <- classifier(num_labels = 6)
+## Training
 
-classifier <- classifier |>
+```{r training-standard, eval=FALSE}
+clf_standard <- classifier(num_labels = 6)
+
+clf_standard <- clf_standard |>
   train(
     train_data,
     text,
@@ -111,30 +112,30 @@ classifier <- classifier |>
     validation_split = 0.2
   )
 
-save_classifier(classifier, file = "models/emotion_standard")
+save_classifier(clf_standard, file = "models/emotion_standard")
 ```
 
 The classification head is trained while keeping the pretrained Granite model frozen. This approach prevents overfitting and requires less training time.
 
 ## Loading Pre-trained Model
 
-For this vignette, we load a pre-trained model to show predictions:
+For this vignette, we load a pre-trained model:
 
-```{r load-model, eval=TRUE}
-classifier <- load_classifier("models/emotion_standard")
+```{r load-model-standard, eval=FALSE}
+clf_standard <- load_classifier("models/emotion_standard")
 ```
 
 ## Making Predictions
 
-```{r predictions}
-predictions <- predict(
-  classifier,
+```{r predictions-standard}
+pred_standard <- predict(
+  clf_standard,
   test_data,
   text,
   type = "class"
 )
 
-predictions |>
+pred_standard |>
   select(text, label, prediction) |>
   mutate(
     true_emotion = c("sadness", "joy", "love", "anger", "fear", "surprise")[label + 1],
@@ -147,17 +148,17 @@ predictions |>
 
 ## Model Evaluation
 
-```{r metrics}
-accuracy <- mean(predictions$prediction == predictions$label)
-cat(sprintf("Overall Accuracy: %.2f%%\n", accuracy * 100))
+```{r metrics-standard}
+accuracy_standard <- mean(pred_standard$prediction == pred_standard$label)
+cat(sprintf("Standard Classifier Accuracy: %.2f%%\n", accuracy_standard * 100))
 ```
 
 ### Confusion Matrix
 
-```{r confusion-matrix, fig.height=6, fig.width=7}
+```{r confusion-matrix-standard, fig.height=6, fig.width=7}
 emotion_names <- c("sadness", "joy", "love", "anger", "fear", "surprise")
 
-conf_matrix_data <- predictions |>
+conf_matrix_std <- pred_standard |>
   mutate(
     true_label = emotion_names[label + 1],
     pred_label = emotion_names[prediction + 1]
@@ -165,12 +166,12 @@ conf_matrix_data <- predictions |>
   count(true_label, pred_label) |>
   complete(true_label = emotion_names, pred_label = emotion_names, fill = list(n = 0))
 
-ggplot(conf_matrix_data, aes(x = true_label, y = pred_label, fill = n)) +
+ ggplot(conf_matrix_std, aes(x = true_label, y = pred_label, fill = n)) +
   geom_tile(color = "white", size = 1) +
   geom_text(aes(label = n), size = 4, fontface = "bold") +
   scale_fill_gradient(low = "#f0f0f0", high = "#3498db", labels = comma) +
   labs(
-    title = "Confusion Matrix: Emotion Detection",
+    title = "Confusion Matrix: Standard Classifier",
     x = "True Emotion",
     y = "Predicted Emotion",
     fill = "Count"
@@ -183,10 +184,116 @@ ggplot(conf_matrix_data, aes(x = true_label, y = pred_label, fill = n)) +
   )
 ```
 
-### Per-Class Metrics
+# Approach 2: Mixture of Experts (MoE)
 
-```{r per-class-metrics, fig.height=6}
-calculate_metrics <- function(predictions, class_label) {
+The MoE approach uses multiple specialized expert networks with a gating mechanism that routes examples to the most appropriate expert.
+
+## Training
+
+```{r training-moe, eval=FALSE}
+clf_moe <- moe_classifier(
+  num_labels = 6,
+  num_experts = 6,
+  freeze_backbone = FALSE,
+  dropout = 0.2,
+  expert_depth = 2
+)
+
+clf_moe <- train_moe(
+  clf_moe,
+  train_data,
+  text,
+  label,
+  epochs = 5,
+  batch_size = 8,
+  learning_rate = 2e-5,
+  validation_split = 0.2
+)
+
+save_classifier(clf_moe, file = "models/emotion_moe")
+```
+
+## Loading Pre-trained MoE Model
+
+```{r load-model-moe, eval=FALSE}
+clf_moe <- load_classifier("models/emotion_moe")
+```
+
+## Making Predictions
+
+```{r predictions-moe}
+pred_moe <- predict(
+  clf_moe,
+  test_data,
+  text,
+  type = "class"
+)
+
+pred_moe |>
+  select(text, label, prediction) |>
+  mutate(
+    true_emotion = emotion_names[label + 1],
+    pred_emotion = emotion_names[prediction + 1]
+  ) |>
+  select(text, true_emotion, pred_emotion) |>
+  head(10) |>
+  knitr::kable()
+```
+
+## Model Evaluation
+
+```{r metrics-moe}
+accuracy_moe <- mean(pred_moe$prediction == pred_moe$label)
+cat(sprintf("MoE Classifier Accuracy: %.2f%%\n", accuracy_moe * 100))
+```
+
+### Confusion Matrix
+
+```{r confusion-matrix-moe, fig.height=6, fig.width=7}
+conf_matrix_moe <- pred_moe |>
+  mutate(
+    true_label = emotion_names[label + 1],
+    pred_label = emotion_names[prediction + 1]
+  ) |>
+  count(true_label, pred_label) |>
+  complete(true_label = emotion_names, pred_label = emotion_names, fill = list(n = 0))
+
+ ggplot(conf_matrix_moe, aes(x = true_label, y = pred_label, fill = n)) +
+  geom_tile(color = "white", size = 1) +
+  geom_text(aes(label = n), size = 4, fontface = "bold") +
+  scale_fill_gradient(low = "#f0f0f0", high = "#9b59b6", labels = comma) +
+  labs(
+    title = "Confusion Matrix: MoE Classifier",
+    x = "True Emotion",
+    y = "Predicted Emotion",
+    fill = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+# Comparing Approaches
+
+```{r comparison}
+comparison <- data.frame(
+  Approach = c("Standard Classifier", "MoE Classifier"),
+  Accuracy = c(accuracy_standard, accuracy_moe),
+  Training_Time = c("Fast", "Moderate"),
+  Model_Size = c("Small", "Large"),
+  Best_For = c("General use, efficiency", "Complex patterns, high accuracy")
+)
+
+knitr::kable(comparison, digits = 4, caption = "Comparison of Classification Approaches")
+```
+
+### Per-Class Metrics Comparison
+
+```{r per-class-comparison, fig.height=7}
+calculate_metrics <- function(predictions, class_label, approach_name) {
   tp <- sum(predictions$prediction == class_label & predictions$label == class_label)
   fp <- sum(predictions$prediction == class_label & predictions$label != class_label)
   fn <- sum(predictions$prediction != class_label & predictions$label == class_label)
@@ -196,6 +303,7 @@ calculate_metrics <- function(predictions, class_label) {
   f1 <- if (precision + recall > 0) 2 * precision * recall / (precision + recall) else 0
 
   data.frame(
+    approach = approach_name,
     emotion = emotion_names[class_label + 1],
     precision = precision,
     recall = recall,
@@ -203,52 +311,57 @@ calculate_metrics <- function(predictions, class_label) {
   )
 }
 
-metrics_df <- bind_rows(lapply(0:5, function(i) calculate_metrics(predictions, i)))
+metrics_standard <- bind_rows(lapply(0:5, function(i)
+  calculate_metrics(pred_standard, i, "Standard")))
 
-metrics_long <- metrics_df |>
+metrics_moe <- bind_rows(lapply(0:5, function(i)
+  calculate_metrics(pred_moe, i, "MoE")))
+
+metrics_combined <- bind_rows(metrics_standard, metrics_moe) |>
   pivot_longer(cols = c(precision, recall, f1),
                names_to = "metric",
                values_to = "value")
 
-ggplot(metrics_long, aes(x = emotion, y = value, fill = metric)) +
+ggplot(metrics_combined, aes(x = emotion, y = value, fill = approach)) +
   geom_col(position = "dodge", width = 0.7) +
-  geom_text(aes(label = sprintf("%.3f", value)),
-            position = position_dodge(width = 0.7),
-            vjust = -0.5, size = 3) +
+  facet_wrap(~ metric, ncol = 1) +
   scale_fill_manual(
-    values = c("precision" = "#e74c3c", "recall" = "#3498db", "f1" = "#2ecc71"),
-    labels = c("Precision", "Recall", "F1 Score")
+    values = c("Standard" = "#3498db", "MoE" = "#9b59b6"),
+    labels = c("Standard Classifier", "MoE Classifier")
   ) +
-  scale_y_continuous(limits = c(0, 1.1), labels = percent) +
+  scale_y_continuous(limits = c(0, 1), labels = percent) +
   labs(
-    title = "Performance Metrics by Emotion",
+    title = "Performance Comparison: Standard vs MoE",
     x = "",
     y = "Score",
-    fill = "Metric"
+    fill = "Approach"
   ) +
   theme_minimal() +
   theme(
     plot.title = element_text(size = 14, face = "bold"),
     legend.position = "top",
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 12, face = "bold")
   )
-```
-
-```{r metrics-table}
-metrics_df |>
-  mutate(across(c(precision, recall, f1), ~sprintf("%.3f", .))) |>
-  knitr::kable(caption = "Detailed Metrics by Emotion Class")
 ```
 
 ## Conclusion
 
-This vignette demonstrated using graniteR for multi-class emotion detection, achieving strong classification performance across six emotion categories. The frozen-encoder approach provides excellent results while being efficient.
+This vignette demonstrated two approaches for multi-class emotion detection with graniteR:
 
-Key takeaways:
-- Multi-class classification with graniteR is straightforward
-- Frozen pretrained models work well for text classification
-- Training is fast (classification head only)
-- Results are interpretable through confusion matrices and per-class metrics
+**Standard Classifier:**
+- Fast training (frozen backbone)
+- Efficient inference
+- Good baseline performance
+- Ideal for most use cases
+
+**MoE Classifier:**
+- Longer training time (fine-tuned backbone)
+- Multiple specialized experts
+- Potentially higher accuracy
+- Better for complex, nuanced classification tasks
+
+Both approaches leverage IBM's Granite embedding models and achieve strong performance on the emotion detection task.
 
 ## References
 
