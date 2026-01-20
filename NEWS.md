@@ -8,6 +8,12 @@
 
 ## Bug Fixes
 
+- Fixed critical MoE classifier training issues
+  - Fixed undefined variable `moe_clf` references in `train_moe()` function (should be `classifier`)
+  - Fixed missing `classification_loss` and `load_balance_loss` keys in `MoETextClassifier` return dictionary
+  - Fixed missing `learning_rate` parameter pass-through in training helper functions
+  - MoE training now works correctly for both binary and multi-class classification
+
 - Fixed interrupt handling to properly stop Python/PyTorch training processes when user interrupts execution (Ctrl+C)
   - Added periodic interrupt checks during training loops (every 5 batches)
   - Added GPU memory cleanup on interrupt to prevent resource leaks

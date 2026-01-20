@@ -80,3 +80,24 @@ Training time estimate: 20-30 minutes with GPU
 3. ⏳ Verify all vignettes render correctly
 4. ⏳ Test model loading and predictions
 5. ⏳ Commit all changes
+
+## Update Complete!
+
+All 4 dataset vignettes have been updated (2026-01-19):
+
+1. ✅ emotion-detection.Rmd - Standard + MoE + Comparison
+2. ✅ sentiment-analysis.Rmd - Standard + MoE + Comparison  
+3. ✅ hate-speech-detection.Rmd - Standard + MoE + Comparison
+4. ✅ malicious-prompt-detection.Rmd - Standard + MoE + Comparison
+
+### Commits
+- `de18b79` - Updated emotion vignette  
+- `2d76060` - Updated sentiment, hate-speech, and malicious-prompt vignettes
+
+### Training Status
+Training script running: `dev/train_all_vignette_models.R` (PID 5417)
+- Currently on step 2/8: emotion_moe
+- Expected completion: ~20-30 minutes from start
+
+### File Sizes
+Each vignette is now 300-400 lines, focused and consistent.

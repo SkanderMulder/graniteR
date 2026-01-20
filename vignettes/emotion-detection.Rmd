@@ -224,10 +224,12 @@ clf_moe <- load_classifier("models/emotion_moe")
 ```{r predictions-moe}
 pred_moe <- predict(
   clf_moe,
-  test_data,
+  data.frame('text'=c('I dont know')),
   text,
-  type = "class"
+  type = "prob"
 )
+
+train_data |> head()
 
 pred_moe |>
   select(text, label, prediction) |>

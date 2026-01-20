@@ -289,7 +289,9 @@ class MoETextClassifier(nn.Module):
                 'loss': loss,
                 'logits': logits,
                 'gate_weights': gate_weights,
-                'expert_outputs': expert_outputs
+                'expert_outputs': expert_outputs,
+                'classification_loss': classification_loss,
+                'load_balance_loss': load_balance_loss
             }
 
         return logits, gate_weights, expert_outputs

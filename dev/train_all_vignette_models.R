@@ -2,8 +2,6 @@
 # Train all models for vignettes
 # This script trains standard and MoE classifiers for all full datasets
 
-library(graniteR)
-library(dplyr)
 
 # Helper function to clear GPU memory
 clear_gpu <- function() {
@@ -84,7 +82,8 @@ train_moe_model <- function(data, name, num_labels, num_experts = NULL, epochs =
     text,
     label,
     epochs = epochs,
-    batch_size = batch_size
+    batch_size = batch_size,
+    learning_rate = lr
   )
 
   save_path <- paste0("models/", name, "_moe")

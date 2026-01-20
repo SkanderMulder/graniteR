@@ -253,7 +253,7 @@ train_moe <- function(
 
       for (i in seq_len(n_batches)) {
         if (i %% 5 == 1) {
-          check_interrupt(model, moe_clf$model$device)
+          check_interrupt(model, classifier$device)
         }
 
         batch_start <- Sys.time()
@@ -377,7 +377,7 @@ train_moe <- function(
 
     classifier$is_trained <- TRUE
   }, interrupt = function(e) {
-    if (moe_clf$model$device == "cuda") {
+    if (classifier$device == "cuda") {
       tryCatch(torch$cuda$empty_cache(), error = function(e) {})
     }
     if (verbose) {
@@ -385,7 +385,7 @@ train_moe <- function(
     }
     stop("Training interrupted", call. = FALSE)
   }, error = function(e) {
-    if (moe_clf$model$device == "cuda") {
+    if (classifier$device == "cuda") {
       tryCatch(torch$cuda$empty_cache(), error = function(e) {})
     }
     if (verbose) {

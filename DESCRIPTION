@@ -1,7 +1,7 @@
 Package: graniteR
 Type: Package
 Title: Interface to IBM Granite Embedding Models
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c(
     person("Skander Tahar Mulder", email = "skandermulder@gmail.com", role = c("aut", "cre"))
     )
