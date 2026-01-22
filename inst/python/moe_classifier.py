@@ -145,9 +145,9 @@ class MoEEmotionClassifier(nn.Module):
 
             return {
                 'loss': loss,
-                'logits': logits,
-                'gate_weights': gate_weights,
-                'expert_outputs': expert_outputs,
+                'logits': logits.detach(),
+                'gate_weights': gate_weights.detach(),
+                'expert_outputs': expert_outputs.detach(),
                 'classification_loss': classification_loss,
                 'load_balance_loss': load_balance_loss
             }
@@ -287,9 +287,9 @@ class MoETextClassifier(nn.Module):
 
             return {
                 'loss': loss,
-                'logits': logits,
-                'gate_weights': gate_weights,
-                'expert_outputs': expert_outputs,
+                'logits': logits.detach(),
+                'gate_weights': gate_weights.detach(),
+                'expert_outputs': expert_outputs.detach(),
                 'classification_loss': classification_loss,
                 'load_balance_loss': load_balance_loss
             }

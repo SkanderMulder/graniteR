@@ -227,7 +227,8 @@ train_moe <- function(
 
   training_start_time <- Sys.time()
   total_batches <- ceiling(length(train_texts) / batch_size) * epochs
-  batch_times <- numeric()
+  batch_times <- numeric(total_batches)
+  batch_counter <- 0
   prev_loss <- NULL
   prev_accuracy <- NULL
 
@@ -283,7 +284,15 @@ train_moe <- function(
         total_cls_loss <- total_cls_loss + outputs$classification_loss$item()
         total_lb_loss <- total_lb_loss + outputs$load_balance_loss$item()
 
-        batch_times <- c(batch_times, as.numeric(difftime(Sys.time(), batch_start, units = "secs")))
+        rm(outputs, moved, encodings, labels_tensor)
+        gc(verbose = FALSE)
+
+        batch_counter <- batch_counter + 1
+        batch_times[batch_counter] <- as.numeric(difftime(Sys.time(), batch_start, units = "secs"))
+
+        if (i %% 50 == 0 && classifier$device == "cuda") {
+          torch$cuda$empty_cache()
+        }
 
         if (verbose) {
           avg_loss <- total_loss / i
@@ -296,7 +305,7 @@ train_moe <- function(
           }
           prev_batch_loss <- avg_loss
 
-          recent_batch_times <- tail(batch_times, min(10, length(batch_times)))
+          recent_batch_times <- tail(batch_times[1:batch_counter], min(10, batch_counter))
           avg_batch_time <- mean(recent_batch_times)
 
           current_batch <- (epoch - 1) * n_batches + i
@@ -317,6 +326,10 @@ train_moe <- function(
 
       if (verbose) {
         cli::cli_progress_done()
+      }
+
+      if (classifier$device == "cuda") {
+        torch$cuda$empty_cache()
       }
 
       if (verbose) {

@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE,
+  eval = FALSE,
   fig.width = 10,
   fig.height = 6,
   warning = FALSE,
@@ -138,7 +138,7 @@ MoE shows additional loss components:
 
 ## Loading Pre-trained Models
 
-```{r load-models, eval=TRUE}
+```{r load-models}
 clf_standard <- load_classifier("models/emotion_standard")
 clf_moe <- load_classifier("models/emotion_moe")
 ```
