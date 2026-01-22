@@ -95,12 +95,13 @@ save_classifier_impl <- function(classifier, file) {
   # For frozen models, only save trainable parameters (huge size reduction)
   # For unfrozen models, save everything in FP16
   if (config$freeze_backbone) {
-    # Save only classifier head (typically <5MB vs 570MB)
+    # Save only classifier head/experts (typically <5MB vs 570MB)
     state_dict_to_save <- reticulate::dict()
     saved_keys <- 0
     for (key in names(state_dict)) {
-      # Save only head/classifier layers, skip backbone
-      if (grepl("(head\\.|classifier\\.|classification_head\\.)", key)) {
+      # Save only head/classifier/expert layers, skip backbone
+      # Pattern matches: head., classifier., classification_head., experts., gating.
+      if (grepl("(head\\.|classifier\\.|classification_head\\.|experts\\.|gating\\.)", key)) {
         tensor <- state_dict[[key]]
         # Still use FP16 for additional compression
         if (grepl("float32", as.character(tensor$dtype))) {
@@ -112,7 +113,11 @@ save_classifier_impl <- function(classifier, file) {
       }
     }
     torch$save(state_dict_to_save, weights_file)
-    cli::cli_alert_info("Saved {saved_keys} classifier head parameters (backbone excluded)")
+    if (is_moe) {
+      cli::cli_alert_info("Saved {saved_keys} expert/gating parameters (backbone excluded)")
+    } else {
+      cli::cli_alert_info("Saved {saved_keys} classifier head parameters (backbone excluded)")
+    }
   } else {
     # For unfrozen models, save everything in FP16
     state_dict_fp16 <- reticulate::dict()
@@ -232,8 +237,9 @@ load_classifier <- function(file, device = NULL) {
     }
   }
 
-  # Load the merged state dict
-  pytorch_model$load_state_dict(current_state_dict)
+  # Load the merged state dict with strict=False to allow partial loading
+  # This is crucial when only classifier head was saved (freeze_backbone=True)
+  pytorch_model$load_state_dict(current_state_dict, strict = FALSE)
 
   num_loaded <- length(names(saved_state_dict))
   num_total <- length(names(current_state_dict))
