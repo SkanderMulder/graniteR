@@ -96,3 +96,6 @@ test_*.R
 
 # Trained models (too large for git/CRAN)
 models/
+
+# Planning and non-essential files
+.plans/

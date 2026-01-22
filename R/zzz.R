@@ -2,6 +2,9 @@
 transformers <- NULL
 torch <- NULL
 
+# Declare global variables to avoid R CMD check NOTEs
+utils::globalVariables(".data")
+
 .onLoad <- function(libname, pkgname) {
   # Disable PyTorch JIT compilation to avoid Python.h dependency
   # This prevents compilation errors when python3-dev is not installed
