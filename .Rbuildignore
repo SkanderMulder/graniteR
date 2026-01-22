@@ -24,3 +24,4 @@
 ^dev$
 ^models$
 ^\.plans$
+^RELEASE_MODELS\.md$
