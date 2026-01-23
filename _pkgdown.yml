@@ -24,19 +24,52 @@ reference:
   contents:
   - granite_model
   - granite_tokenizer
+  - granite_check_system
   - install_pyenv
+  - reset_gpu
 
 - title: Embeddings
   desc: Generate sentence embeddings
   contents:
-  - granite_embed
+  - embed
 
 - title: Classification
   desc: Train and use text classifiers
   contents:
-  - granite_classifier
-  - granite_train
-  - granite_predict
+  - classifier
+  - moe_classifier
+  - train
+  - train_moe
+  - predict.classifier
+  - predict.moe_classifier
+
+- title: Model Management
+  desc: Save, load, and download models
+  contents:
+  - save_classifier
+  - load_classifier
+  - download_model
+  - download_vignette_models
+  - list_available_models
+
+- title: Example Data
+  desc: Datasets included with the package
+  contents:
+  - emotion_sample
+  - emotion_full
+  - hate_speech_sample
+  - hate_speech_full
+  - malicious_prompts_sample
+  - malicious_prompts_full
+  - sentiment_imdb_sample
+  - sentiment_imdb_full
+  - clf_moe_example
+
+- title: Internal Functions
+  desc: Print and helper methods
+  contents:
+  - print.granite_model
+  - print.granite_tokenizer
 
   structure:
     left: [intro, reference, articles]

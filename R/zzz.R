@@ -8,10 +8,12 @@ utils::globalVariables(".data")
 .onLoad <- function(libname, pkgname) {
   # Disable PyTorch JIT compilation to avoid Python.h dependency
   # This prevents compilation errors when python3-dev is not installed
+  # Also disable tokenizers parallelism to avoid fork warnings
   Sys.setenv(
     PYTORCH_JIT = "0",
     PYTORCH_JIT_USE_NNC_NOT_NVFUSER = "0",
-    TORCHDYNAMO_DISABLE = "1"
+    TORCHDYNAMO_DISABLE = "1",
+    TOKENIZERS_PARALLELISM = "false"
   )
 
   # Initialize Python modules - use .onLoad instead of .onAttach
