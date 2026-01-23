@@ -6,6 +6,101 @@ check_model <- function(model) {
   invisible(model)
 }
 
+# Load model from Hugging Face with retry logic to handle connection issues
+load_model_with_retry <- function(model_name, task, num_labels = NULL, max_retries = 5) {
+  for (attempt in seq_len(max_retries)) {
+    tryCatch({
+      # Clear any stale HTTP connections
+      if (attempt > 1) {
+        gc(verbose = FALSE, full = TRUE)
+        Sys.sleep(min(2^(attempt - 1), 10))  # Exponential backoff, max 10s
+      }
+
+      model <- switch(
+        task,
+        embedding = transformers$AutoModel$from_pretrained(model_name),
+        classification = {
+          if (is.null(num_labels)) {
+            stop("num_labels must be specified for classification tasks")
+          }
+          transformers$AutoModelForSequenceClassification$from_pretrained(
+            model_name,
+            num_labels = as.integer(num_labels)
+          )
+        },
+        regression = {
+          transformers$AutoModelForSequenceClassification$from_pretrained(
+            model_name,
+            num_labels = 1L
+          )
+        }
+      )
+
+      return(model)
+    }, error = function(e) {
+      error_msg <- conditionMessage(e)
+
+      # Check if it's a connection error that might be retryable
+      is_connection_error <- any(sapply(
+        c("Connection aborted", "RemoteDisconnected", "Connection reset", "Timeout"),
+        function(pattern) grepl(pattern, error_msg, ignore.case = TRUE)
+      ))
+
+      if (is_connection_error && attempt < max_retries) {
+        cli::cli_alert_warning(
+          "Connection error (attempt {attempt}/{max_retries}): Retrying in {min(2^(attempt - 1), 10)}s..."
+        )
+        # Don't stop, let the loop continue
+        NULL
+      } else if (attempt >= max_retries) {
+        cli::cli_alert_danger("Failed to load model after {max_retries} attempts")
+        stop(error_msg, call. = FALSE)
+      } else {
+        # Non-connection error, fail immediately
+        stop(error_msg, call. = FALSE)
+      }
+    })
+  }
+}
+
+# Load tokenizer from Hugging Face with retry logic
+load_tokenizer_with_retry <- function(model_name, max_retries = 5) {
+  for (attempt in seq_len(max_retries)) {
+    tryCatch({
+      # Clear any stale HTTP connections
+      if (attempt > 1) {
+        gc(verbose = FALSE, full = TRUE)
+        Sys.sleep(min(2^(attempt - 1), 10))  # Exponential backoff, max 10s
+      }
+
+      tokenizer <- transformers$AutoTokenizer$from_pretrained(model_name)
+      return(tokenizer)
+    }, error = function(e) {
+      error_msg <- conditionMessage(e)
+
+      # Check if it's a connection error that might be retryable
+      is_connection_error <- any(sapply(
+        c("Connection aborted", "RemoteDisconnected", "Connection reset", "Timeout"),
+        function(pattern) grepl(pattern, error_msg, ignore.case = TRUE)
+      ))
+
+      if (is_connection_error && attempt < max_retries) {
+        cli::cli_alert_warning(
+          "Connection error loading tokenizer (attempt {attempt}/{max_retries}): Retrying in {min(2^(attempt - 1), 10)}s..."
+        )
+        # Don't stop, let the loop continue
+        NULL
+      } else if (attempt >= max_retries) {
+        cli::cli_alert_danger("Failed to load tokenizer after {max_retries} attempts")
+        stop(error_msg, call. = FALSE)
+      } else {
+        # Non-connection error, fail immediately
+        stop(error_msg, call. = FALSE)
+      }
+    })
+  }
+}
+
 check_tokenizer <- function(tokenizer) {
   if (is.null(tokenizer)) {
     stop("Tokenizer is NULL. Create a tokenizer first using granite_tokenizer().")

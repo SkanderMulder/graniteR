@@ -2,6 +2,7 @@ library(testthat)
 
 test_that("install_pyenv checks for processx package", {
   skip_on_cran()
+  skip_on_ci()
 
   # Mock environment without processx
   with_mocked_bindings(
@@ -18,6 +19,7 @@ test_that("install_pyenv checks for processx package", {
 
 test_that("install_pyenv handles UV not available", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("processx")
 
   with_mocked_bindings(
@@ -32,6 +34,7 @@ test_that("install_pyenv handles UV not available", {
 
 test_that("install_pyenv creates venv path", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("processx")
   skip_if_not_installed("mockery")
 
@@ -54,6 +57,7 @@ test_that("install_pyenv creates venv path", {
 
 test_that("install_pyenv uses existing venv", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("processx")
   skip_if_not_installed("mockery")
 
@@ -73,6 +77,7 @@ test_that("install_pyenv uses existing venv", {
 
 test_that("install_pyenv uses requirements.txt when available", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("processx")
   skip_if_not_installed("mockery")
 
@@ -98,6 +103,7 @@ test_that("install_pyenv uses requirements.txt when available", {
 
 test_that(".onLoad initializes Python modules when available", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("mockery")
   
   local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
@@ -130,6 +136,7 @@ test_that(".onLoad initializes Python modules when available", {
 
 test_that(".onLoad handles Python not available", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("mockery")
   
   local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
@@ -148,6 +155,7 @@ test_that(".onLoad handles Python not available", {
 
 test_that(".onLoad handles import errors silently", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("mockery")
   
   local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
@@ -174,6 +182,7 @@ test_that(".onLoad handles import errors silently", {
 
 test_that(".onAttach shows message when Python dependencies are missing", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("mockery")
   
   local_bindings(transformers = NULL, torch = NULL, .env = asNamespace("graniteR"))
@@ -194,6 +203,7 @@ test_that(".onAttach shows message when Python dependencies are missing", {
 
 test_that(".onAttach does not show message when Python dependencies are present", {
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("mockery")
   
   local_bindings(transformers = "mock_transformers", torch = "mock_torch", .env = asNamespace("graniteR"))

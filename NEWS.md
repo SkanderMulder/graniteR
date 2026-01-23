@@ -8,6 +8,12 @@
 
 ## Bug Fixes
 
+- Fixed Hugging Face connection errors after saving models
+  - Models now load from local cache first to avoid unnecessary network calls
+  - Added retry logic with exponential backoff for connection errors (max 5 retries)
+  - Added resource cleanup after save operations to prevent stale connections
+  - Fixes "Connection aborted" / "RemoteDisconnected" errors when creating models after saving
+
 - Fixed critical MoE classifier training issues
   - Fixed undefined variable `moe_clf` references in `train_moe()` function (should be `classifier`)
   - Fixed missing `classification_loss` and `load_balance_loss` keys in `MoETextClassifier` return dictionary

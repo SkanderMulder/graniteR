@@ -172,17 +172,17 @@ train_moe_model(sentiment_imdb_full, "sentiment", num_labels = 2, num_experts = 
 cat("\n[5/8] Hate Speech Detection - Standard\n")
 data(hate_speech_full)
 train_standard(hate_speech_full, "hate_speech", num_labels = 2, epochs = 3, batch_size = 32, lr = 2e-3)
-}
-cat("\n[6/8] Hate Speech Detection - MoE\n")
-train_moe_model(hate_speech_full, "hate_speech", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 16, lr = 7e-5)
 
+cat("\n[6/8] Hate Speech Detection - MoE\n")
+train_moe_model(hate_speech_full, "hate_speech", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 96, lr = 7e-5)
+}
 # 4. Malicious Prompts Detection (2 classes)
 cat("\n[7/8] Malicious Prompts - Standard\n")
 data(malicious_prompts_full)
-train_standard(malicious_prompts_full, "malicious_prompts", num_labels = 2, epochs = 3, batch_size = 128, lr = 2e-3)
+train_standard(malicious_prompts_full, "malicious_prompts", num_labels = 2, epochs = 3, batch_size = 10, lr = 2e-3)
 
 cat("\n[8/8] Malicious Prompts - MoE\n")
-train_moe_model(malicious_prompts_full, "malicious_prompts", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 16, lr = 7e-5)
+train_moe_model(malicious_prompts_full, "malicious_prompts", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 10, lr = 7e-5)
 
 # ============================================================================
 # Verification: Load all models and test

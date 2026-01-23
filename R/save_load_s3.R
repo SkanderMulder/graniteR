@@ -138,6 +138,9 @@ save_classifier_impl <- function(classifier, file) {
   # Save config with base R saveRDS
   base::saveRDS(config, config_file)
 
+  # Clean up resources to avoid connection issues with subsequent operations
+  gc(verbose = FALSE, full = TRUE)
+
   cli::cli_alert_success("Saved classifier")
   cli::cli_alert_info("Weights: {basename(weights_file)}")
   cli::cli_alert_info("Config: {basename(config_file)}")

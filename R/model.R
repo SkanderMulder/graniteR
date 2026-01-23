@@ -53,25 +53,36 @@ granite_model <- function(
     }, error = function(e) NULL)
   }
 
-  model <- switch(
-    task,
-    embedding = transformers$AutoModel$from_pretrained(model_name),
-    classification = {
-      if (is.null(num_labels)) {
-        stop("num_labels must be specified for classification tasks")
+  # Try loading from local cache first to avoid connection issues
+  model <- tryCatch({
+    switch(
+      task,
+      embedding = transformers$AutoModel$from_pretrained(
+        model_name,
+        local_files_only = TRUE
+      ),
+      classification = {
+        if (is.null(num_labels)) {
+          stop("num_labels must be specified for classification tasks")
+        }
+        transformers$AutoModelForSequenceClassification$from_pretrained(
+          model_name,
+          num_labels = as.integer(num_labels),
+          local_files_only = TRUE
+        )
+      },
+      regression = {
+        transformers$AutoModelForSequenceClassification$from_pretrained(
+          model_name,
+          num_labels = 1L,
+          local_files_only = TRUE
+        )
       }
-      transformers$AutoModelForSequenceClassification$from_pretrained(
-        model_name,
-        num_labels = as.integer(num_labels)
-      )
-    },
-    regression = {
-      transformers$AutoModelForSequenceClassification$from_pretrained(
-        model_name,
-        num_labels = 1L
-      )
-    }
-  )
+    )
+  }, error = function(e) {
+    # If local loading fails, download from Hugging Face with retry logic
+    load_model_with_retry(model_name, task, num_labels)
+  })
 
   # Freeze base model parameters for classification/regression tasks
   # Only train the classification head
@@ -129,7 +140,13 @@ granite_model <- function(
 granite_tokenizer <- function(
   model_name = "ibm-granite/granite-embedding-english-r2"
 ) {
-  tokenizer <- transformers$AutoTokenizer$from_pretrained(model_name)
+  # Try loading from local cache first
+  tokenizer <- tryCatch({
+    transformers$AutoTokenizer$from_pretrained(model_name, local_files_only = TRUE)
+  }, error = function(e) {
+    # If local loading fails, download with retry logic
+    load_tokenizer_with_retry(model_name)
+  })
 
   structure(
     list(
