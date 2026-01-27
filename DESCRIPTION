@@ -29,7 +29,10 @@ Suggests:
     rmarkdown,
     readr,
     testthat (>= 3.0.0),
-    tibble (>= 3.0.0)
+    tibble (>= 3.0.0),
+    ggplot2,
+    scales,
+    tidyr
 VignetteBuilder: knitr
 URL: https://github.com/skandermulder/graniteR
 BugReports: https://github.com/skandermulder/graniteR/issues

@@ -43,10 +43,10 @@ Data frame with predictions
 Make predictions with a trained classifier
 }
 \examples{
-\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+\dontrun{
 # Assuming 'clf' is a trained model and 'new_data' is a tibble
 # predictions <- predict(clf, new_data, text_col = text)
-\dontshow{\}) # examplesIf}
+}
 }
 \seealso{
 \code{\link{classifier}}, \code{\link{train}}

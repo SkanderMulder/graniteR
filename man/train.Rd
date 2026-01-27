@@ -60,7 +60,7 @@ keeping the pretrained encoder frozen. This typically requires:
 }
 }
 \examples{
-\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+\dontrun{
 library(dplyr)
 
 # Binary classification with integer labels
@@ -78,7 +78,7 @@ data_multi <- tibble::tibble(
 )
 clf_multi <- classifier(num_labels = 4) |>
   train(data_multi, text, priority, epochs = 5)
-\dontshow{\}) # examplesIf}
+}
 }
 \seealso{
 \code{\link{classifier}}, \code{\link{predict}}

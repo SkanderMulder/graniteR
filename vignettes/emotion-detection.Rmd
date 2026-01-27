@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE,
+  eval = TRUE,
   fig.width = 10,
   fig.height = 6,
   warning = FALSE,
@@ -119,10 +119,10 @@ The classification head is trained while keeping the pretrained Granite model fr
 
 ## Loading Pre-trained Model
 
-For this vignette, we load a pre-trained model:
+For this vignette, we load a pre-trained model. The `find_model()` function automatically locates the model in the package or your local download directory:
 
-```{r load-model-standard, eval=FALSE}
-clf_standard <- load_classifier("models/emotion_standard")
+```{r load-model-standard, eval=TRUE}
+clf_standard <- load_classifier(find_model("emotion_standard"))
 ```
 
 ## Making Predictions
@@ -215,8 +215,8 @@ save_classifier(clf_moe, file = "models/emotion_moe")
 
 ## Loading Pre-trained MoE Model
 
-```{r load-model-moe, eval=FALSE}
-clf_moe <- load_classifier("models/emotion_moe")
+```{r load-model-moe, eval=TRUE}
+clf_moe <- load_classifier(find_model("emotion_moe"))
 ```
 
 ## Making Predictions
@@ -224,12 +224,10 @@ clf_moe <- load_classifier("models/emotion_moe")
 ```{r predictions-moe}
 pred_moe <- predict(
   clf_moe,
-  data.frame('text'=c('I dont know')),
+  test_data,
   text,
-  type = "prob"
+  type = "class"
 )
-
-train_data |> head()
 
 pred_moe |>
   select(text, label, prediction) |>

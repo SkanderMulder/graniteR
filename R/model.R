@@ -7,12 +7,14 @@
 #' @return A Granite model object
 #' @export
 #' @seealso \code{\link{granite_tokenizer}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' # Create an embedding model
 #' model <- granite_model()
 #'
 #' # Create a classification model
 #' model <- granite_model(task = "classification", num_labels = 3)
+#' }
 granite_model <- function(
   model_name = "ibm-granite/granite-embedding-english-r2",
   task = c("embedding", "classification", "regression"),
@@ -135,8 +137,10 @@ granite_model <- function(
 #' @return A Granite tokenizer object
 #' @export
 #' @seealso \code{\link{granite_model}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' tokenizer <- granite_tokenizer()
+#' }
 granite_tokenizer <- function(
   model_name = "ibm-granite/granite-embedding-english-r2"
 ) {

@@ -5,48 +5,7 @@ devtools::load_all()
 # This script trains standard and MoE classifiers for all full datasets
 
 
-# Helper function to clear GPU memory
-clear_gpu <- function() {
-  torch <- reticulate::import('torch')
-  if (torch$cuda$is_available()) {
-    torch$cuda$empty_cache()
-  }
-  gc()
-}
-
-# Helper function to hard reset GPU memory
-reset_gpu <- function() {
-  cat("Resetting GPU memory...\n")
-  torch <- reticulate::import('torch')
-
-  if (torch$cuda$is_available()) {
-    # Clear CUDA cache
-    torch$cuda$empty_cache()
-
-    # Synchronize all CUDA operations
-    torch$cuda$synchronize()
-
-    # Reset peak memory stats
-    torch$cuda$reset_peak_memory_stats()
-    torch$cuda$reset_accumulated_memory_stats()
-
-    # Force garbage collection multiple times
-    for (i in 1:3) {
-      gc()
-      Sys.sleep(0.5)
-    }
-
-    # Clear cache again
-    torch$cuda$empty_cache()
-
-    # Report memory status
-    allocated <- torch$cuda$memory_allocated() / 1024^3
-    reserved <- torch$cuda$memory_reserved() / 1024^3
-    cat(sprintf("GPU Memory - Allocated: %.2f GB, Reserved: %.2f GB\n", allocated, reserved))
-  } else {
-    cat("CUDA not available\n")
-  }
-}
+# Note: reset_gpu() function is loaded from the package via devtools::load_all()
 
 # Helper function to train and save standard classifier
 train_standard <- function(data, name, num_labels, epochs = 5, batch_size = 50, lr = 1e-3, max_samples = NULL) {
@@ -151,7 +110,6 @@ cat(strrep("#", 70), "\n")
 # Reset GPU before starting
 reset_gpu()
 
-if(FALSE){
 # 1. Emotion Detection (6 classes)
 cat("\n[1/8] Emotion Detection - Standard\n")
 data(emotion_full)
@@ -175,14 +133,14 @@ train_standard(hate_speech_full, "hate_speech", num_labels = 2, epochs = 3, batc
 
 cat("\n[6/8] Hate Speech Detection - MoE\n")
 train_moe_model(hate_speech_full, "hate_speech", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 96, lr = 7e-5)
-}
+
 # 4. Malicious Prompts Detection (2 classes)
 cat("\n[7/8] Malicious Prompts - Standard\n")
 data(malicious_prompts_full)
-train_standard(malicious_prompts_full, "malicious_prompts", num_labels = 2, epochs = 3, batch_size = 32, lr = 2e-3, max_samples = 25600)
+train_standard(malicious_prompts_full, "malicious_prompts", num_labels = 2, epochs = 3, batch_size = 8, lr = 2e-3, max_samples = 12800)
 
 cat("\n[8/8] Malicious Prompts - MoE\n")
-train_moe_model(malicious_prompts_full, "malicious_prompts", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 16, lr = 7e-5, max_samples = 25600)
+train_moe_model(malicious_prompts_full, "malicious_prompts", num_labels = 2, num_experts = 3, epochs = 3, batch_size = 8, lr = 7e-5, max_samples = 12800)
 
 # ============================================================================
 # Verification: Load all models and test

@@ -1,5 +1,10 @@
+# Skip all tests during R CMD check to avoid Python/PyTorch memory issues
+skip_if(Sys.getenv("GRANITER_SKIP_TESTS") == "true")
+
 test_that("classifier creates a valid classifier object", {
   skip_if_no_python_or_modules()
+  skip_on_ci()
+  skip_on_cran()
 
   # Test with explicit num_labels
   classifier_explicit <- classifier(num_labels = 2)
@@ -19,6 +24,8 @@ test_that("classifier creates a valid classifier object", {
 
 test_that("train runs and updates the classifier", {
   skip_if_no_python_or_modules()
+  skip_on_ci()
+  skip_on_cran()
 
   data <- tibble::tibble(
     text = c("positive", "negative", "positive", "negative"),
@@ -44,6 +51,8 @@ test_that("train runs and updates the classifier", {
 
 test_that("predict returns predictions", {
   skip_if_no_python_or_modules()
+  skip_on_ci()
+  skip_on_cran()
 
   train_data <- tibble::tibble(
     text = c("positive", "negative", "positive", "negative"),

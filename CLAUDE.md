@@ -9,7 +9,7 @@ This document provides comprehensive guidance for AI assistants working on the g
 ### Key Features
 - **Transfer learning**: Frozen pretrained models with trainable classification heads
 - **Local execution**: All inference runs on-device for privacy
-- **AutoML**: State-of-the-art meta-learning and CASH-based model selection
+- **Mixture of Experts**: Multiple expert networks with gating for complex tasks
 - **Multi-class support**: Binary and n-class classification
 - **GPU acceleration**: Automatic CUDA detection with CPU fallback
 - **Fast setup**: UV package manager for Python dependencies (1-2 min vs 10-20 min)
@@ -45,9 +45,8 @@ graniteR/
 │   ├── embed.R                 # Embedding functions
 │   ├── classifier.R            # Standard classification
 │   ├── moe_classifier.R        # Mixture of Experts classifier
-│   ├── auto_classify.R         # AutoML with meta-learning and CASH
-│   ├── ensemble.R              # Ensemble methods
-│   ├── meta_features.R         # Dataset meta-feature extraction
+│   ├── download_models.R       # Model download from GitHub releases
+│   ├── reset_gpu.R             # GPU memory management
 │   ├── data.R                  # Data documentation
 │   ├── save_load_s3.R          # Model persistence
 │   └── graniteR-package.R      # Package documentation
@@ -445,37 +444,16 @@ devtools::build_vignettes()
 - **Benefits**: Faster training, lower memory, better generalization on small datasets
 - **Optional fine-tuning**: Set `freeze_backbone = FALSE` for full model training
 
-### 2. AutoML Implementation (auto_classify.R)
-The package implements state-of-the-art AutoML using:
-
-#### Meta-Learning
-- Extract dataset meta-features (size, entropy, complexity, vocabulary)
-- Predict model performance without training
-- Rank candidates by predicted performance
-
-#### CASH (Combined Algorithm Selection and Hyperparameters)
-- Joint optimization of model architecture AND hyperparameters
-- Search space includes:
-  - Model types: frozen, fine-tuned, MoE
-  - Hyperparameters: learning rates, epochs, num_experts
-- Time budget management with early stopping
-
-#### Ensemble Building
-- Select diverse high-performing candidates
-- Weight by cross-validation performance
-- Typically 1-3% accuracy improvement
-
-### 3. Mixture of Experts (MoE)
+### 2. Mixture of Experts (MoE)
 - Multiple expert networks specialized for different inputs
 - Gating network learns to route examples to experts
 - Implemented in `R/moe_classifier.R` and `inst/python/moe_classifier.py`
 - Benefits: Better handling of complex, multi-modal data
 
-### 4. S3 Object System
+### 3. S3 Object System
 Classes used:
 - `classifier`: Standard classifier with model and tokenizer
 - `moe_classifier`: Mixture of Experts classifier
-- `ensemble`: Ensemble of multiple models
 - `trained_classifier`: Classifier after training (inherits from `classifier`)
 
 Generic functions with methods:

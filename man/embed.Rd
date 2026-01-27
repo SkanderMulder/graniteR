@@ -24,11 +24,11 @@ Data frame with added embeddings column
 Generate embeddings for text data
 }
 \examples{
-\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+\dontrun{
 library(dplyr)
 data <- tibble::tibble(text = c("Hello world", "Test sentence"))
 data |> embed(text_col = text)
-\dontshow{\}) # examplesIf}
+}
 }
 \seealso{
 \code{\link{granite_model}}, \code{\link{granite_tokenizer}}

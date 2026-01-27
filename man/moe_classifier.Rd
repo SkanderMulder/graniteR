@@ -69,7 +69,7 @@ MoE requires more training data and compute but can achieve higher accuracy on
 complex multi-class tasks when properly tuned.
 }
 \examples{
-\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+\dontrun{
 # Create MoE classifier for emotion detection (6 classes)
 clf <- moe_classifier(num_labels = 6, num_experts = 4)
 
@@ -79,7 +79,7 @@ clf_binary <- moe_classifier(num_labels = 2, num_experts = 3)
 # Infer from data
 data <- tibble::tibble(text = c("a", "b", "c"), label = c("joy", "sad", "angry"))
 clf <- moe_classifier(data = data, label_col = label)
-\dontshow{\}) # examplesIf}
+}
 }
 \seealso{
 \code{\link{train_moe}}, \code{\link{predict.moe_classifier}}

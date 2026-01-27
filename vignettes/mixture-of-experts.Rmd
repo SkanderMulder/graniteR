@@ -139,8 +139,8 @@ MoE shows additional loss components:
 ## Loading Pre-trained Models
 
 ```{r load-models}
-clf_standard <- load_classifier("models/emotion_standard")
-clf_moe <- load_classifier("models/emotion_moe")
+clf_standard <- load_classifier(find_model("emotion_standard"))
+clf_moe <- load_classifier(find_model("emotion_moe"))
 ```
 
 ## Making Predictions

@@ -40,7 +40,8 @@
 #'
 #' @export
 #' @seealso \code{\link{train_moe}}, \code{\link{predict.moe_classifier}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' # Create MoE classifier for emotion detection (6 classes)
 #' clf <- moe_classifier(num_labels = 6, num_experts = 4)
 #'
@@ -50,6 +51,7 @@
 #' # Infer from data
 #' data <- tibble::tibble(text = c("a", "b", "c"), label = c("joy", "sad", "angry"))
 #' clf <- moe_classifier(data = data, label_col = label)
+#' }
 moe_classifier <- function(
   num_labels = NULL,
   num_experts = NULL,
@@ -173,7 +175,8 @@ moe_classifier <- function(
 #'
 #' @export
 #' @seealso \code{\link{moe_classifier}}, \code{\link{predict.moe_classifier}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' library(dplyr)
 #'
 #' data <- tibble::tibble(
@@ -182,6 +185,7 @@ moe_classifier <- function(
 #' )
 #' clf <- moe_classifier(num_labels = 3, num_experts = 3) |>
 #'   train_moe(data, text, emotion, epochs = 3)
+#' }
 train_moe <- function(
   classifier,
   data,

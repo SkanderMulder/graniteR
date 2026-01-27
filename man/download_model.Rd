@@ -4,14 +4,15 @@
 \alias{download_model}
 \title{Download pre-trained vignette models}
 \usage{
-download_model(model_name, destination = "models/", version = "v0.1.1")
+download_model(model_name, destination = NULL, version = "v0.1.1")
 }
 \arguments{
 \item{model_name}{Character; name of model to download. One of:
 "emotion_standard", "emotion_moe", "sentiment_standard",
-"sentiment_moe", "hate_speech_standard"}
+"sentiment_moe", "hate_speech_standard", "hate_speech_moe",
+"malicious_prompts_standard", "malicious_prompts_moe"}
 
-\item{destination}{Character; directory to save models (default: "models/")}
+\item{destination}{Character; directory to save models (default: auto-detect)}
 
 \item{version}{Character; package version/release tag (default: "v0.1.1")}
 }

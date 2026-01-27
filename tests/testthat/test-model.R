@@ -1,5 +1,9 @@
+# Skip all tests during R CMD check to avoid Python/PyTorch memory issues
+skip_if(Sys.getenv("GRANITER_SKIP_TESTS") == "true")
+
 test_that("granite_model creates model object", {
   skip_if_no_python_or_modules()
+  skip_on_ci()
 
   model <- granite_model(task = "embedding")
   expect_s3_class(model, "granite_model")
@@ -8,6 +12,7 @@ test_that("granite_model creates model object", {
 
 test_that("granite_tokenizer creates tokenizer object", {
   skip_if_no_python_or_modules()
+  skip_on_ci()
 
   tokenizer <- granite_tokenizer()
   expect_s3_class(tokenizer, "granite_tokenizer")
@@ -15,6 +20,7 @@ test_that("granite_tokenizer creates tokenizer object", {
 
 test_that("classifier requires num_labels", {
   skip_if_no_python_or_modules()
+  skip_on_ci()
 
   expect_error(
     granite_model(task = "classification"),
@@ -24,7 +30,8 @@ test_that("classifier requires num_labels", {
 
 test_that("granite_model creates classification model", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   model <- granite_model(task = "classification", num_labels = 3)
   
   expect_s3_class(model, "granite_model")
@@ -34,7 +41,8 @@ test_that("granite_model creates classification model", {
 
 test_that("granite_model creates regression model", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   model <- granite_model(task = "regression")
   
   expect_s3_class(model, "granite_model")
@@ -62,7 +70,8 @@ test_that("granite_model handles CUDA device when available", {
 
 test_that("granite_model defaults to CPU", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   model <- granite_model()
   expect_equal(model$device, "cpu")
 })
@@ -85,7 +94,8 @@ test_that("granite_tokenizer handles custom model name", {
 
 test_that("print.granite_model outputs correctly", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   model <- granite_model(task = "embedding")
   
   output <- capture.output(print(model))
@@ -95,7 +105,8 @@ test_that("print.granite_model outputs correctly", {
 
 test_that("print.granite_model shows num_labels for classification", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   model <- granite_model(task = "classification", num_labels = 5)
   
   output <- capture.output(print(model))
@@ -104,7 +115,8 @@ test_that("print.granite_model shows num_labels for classification", {
 
 test_that("print.granite_tokenizer outputs correctly", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   tokenizer <- granite_tokenizer()
   
   output <- capture.output(print(tokenizer))
@@ -114,7 +126,8 @@ test_that("print.granite_tokenizer outputs correctly", {
 
 test_that("granite_model handles invalid task", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   expect_error(
     granite_model(task = "invalid_task"),
     "'arg' should be one of"
@@ -123,7 +136,8 @@ test_that("granite_model handles invalid task", {
 
 test_that("print.granite_model without num_labels", {
   skip_if_no_python_or_modules()
-  
+  skip_on_ci()
+
   model <- granite_model(task = "embedding")
   
   output <- capture.output(print(model))

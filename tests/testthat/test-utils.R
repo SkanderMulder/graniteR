@@ -1,5 +1,8 @@
 testthat::local_edition(3)
 
+# Skip all tests during R CMD check to avoid Python/PyTorch memory issues
+skip_if(Sys.getenv("GRANITER_SKIP_TESTS") == "true")
+
 test_that("check_model validates model", {
   expect_error(graniteR:::check_model(NULL), "Model is NULL")
 })

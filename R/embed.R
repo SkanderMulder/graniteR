@@ -8,10 +8,12 @@
 #' @return Data frame with added embeddings column
 #' @export
 #' @seealso \code{\link{granite_model}}, \code{\link{granite_tokenizer}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' library(dplyr)
 #' data <- tibble::tibble(text = c("Hello world", "Test sentence"))
 #' data |> embed(text_col = text)
+#' }
 embed <- function(
   data,
   text_col,

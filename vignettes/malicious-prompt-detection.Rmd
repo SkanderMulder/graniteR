@@ -119,7 +119,7 @@ The classification head is trained while keeping the pretrained Granite model fr
 ## Loading Pre-trained Model
 
 ```{r load-model-standard, eval=FALSE}
-clf_standard <- load_classifier("models/malicious_prompts_standard")
+clf_standard <- load_classifier(find_model("malicious_prompts_standard"))
 ```
 
 ## Making Predictions
@@ -224,7 +224,7 @@ save_classifier(clf_moe, file = "models/malicious_prompts_moe")
 ## Loading Pre-trained MoE Model
 
 ```{r load-model-moe, eval=FALSE}
-clf_moe <- load_classifier("models/malicious_prompts_moe")
+clf_moe <- load_classifier(find_model("malicious_prompts_moe"))
 ```
 
 ## Making Predictions

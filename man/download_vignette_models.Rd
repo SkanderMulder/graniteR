@@ -4,10 +4,10 @@
 \alias{download_vignette_models}
 \title{Download all vignette models}
 \usage{
-download_vignette_models(destination = "models/", version = "v0.1.1")
+download_vignette_models(destination = NULL, version = "v0.1.1")
 }
 \arguments{
-\item{destination}{Character; directory to save models (default: "models/")}
+\item{destination}{Character; directory to save models (default: auto-detect)}
 
 \item{version}{Character; package version/release tag (default: "v0.1.1")}
 }

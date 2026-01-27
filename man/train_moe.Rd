@@ -55,7 +55,7 @@ different experts, potentially allowing specialization (e.g., one expert
 for positive sentiment, another for negative).
 }
 \examples{
-\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+\dontrun{
 library(dplyr)
 
 data <- tibble::tibble(
@@ -64,7 +64,7 @@ data <- tibble::tibble(
 )
 clf <- moe_classifier(num_labels = 3, num_experts = 3) |>
   train_moe(data, text, emotion, epochs = 3)
-\dontshow{\}) # examplesIf}
+}
 }
 \seealso{
 \code{\link{moe_classifier}}, \code{\link{predict.moe_classifier}}

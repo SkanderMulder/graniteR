@@ -25,3 +25,6 @@
 ^models$
 ^\.plans$
 ^RELEASE_MODELS\.md$
+^check_output\.txt$
+^docs$
+^pkgdown$

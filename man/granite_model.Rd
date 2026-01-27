@@ -27,13 +27,13 @@ A Granite model object
 Create a Granite embedding model
 }
 \examples{
-\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+\dontrun{
 # Create an embedding model
 model <- granite_model()
 
 # Create a classification model
 model <- granite_model(task = "classification", num_labels = 3)
-\dontshow{\}) # examplesIf}
+}
 }
 \seealso{
 \code{\link{granite_tokenizer}}

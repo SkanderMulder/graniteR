@@ -38,13 +38,15 @@
 #' }
 #' @export
 #' @seealso \code{\link{train}}, \code{\link{predict}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' # Explicit num_labels
 #' clf <- classifier(num_labels = 2)
 #'
 #' # Infer from data
 #' data <- tibble::tibble(text = c("a", "b"), label = c("high", "low"))
 #' clf <- classifier(data = data, label_col = label)
+#' }
 classifier <- function(
   num_labels = NULL,
   data = NULL,
@@ -144,7 +146,8 @@ classifier <- function(
 #' }
 #' @export
 #' @seealso \code{\link{classifier}}, \code{\link{predict}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' library(dplyr)
 #'
 #' # Binary classification with integer labels
@@ -162,6 +165,7 @@ classifier <- function(
 #' )
 #' clf_multi <- classifier(num_labels = 4) |>
 #'   train(data_multi, text, priority, epochs = 5)
+#' }
 train <- function(
   classifier,
   data,
@@ -432,9 +436,11 @@ evaluate_classifier <- function(model, tokenizer, texts, labels, batch_size, dev
 #' @return Data frame with predictions
 #' @export
 #' @seealso \code{\link{classifier}}, \code{\link{train}}
-#' @examplesIf requireNamespace("transformers")
+#' @examples
+#' \dontrun{
 #' # Assuming 'clf' is a trained model and 'new_data' is a tibble
 #' # predictions <- predict(clf, new_data, text_col = text)
+#' }
 predict.granite_classifier <- function(
   object,
   data,

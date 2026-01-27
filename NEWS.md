@@ -1,10 +1,34 @@
-# graniteR 0.1.1 (Development)
+# graniteR 0.1.1
 
 ## Breaking Changes
 
 - Moved AutoML functionality (`auto_classify()`, ensemble methods, meta-feature extraction) to `dev/` directory
   - These features are experimental and will be part of a future release
   - Users should use `classifier()` or `moe_classifier()` for current classification tasks
+
+## New Features
+
+- Added `find_model()` function to locate pre-trained models
+  - Automatically searches in package installation directory (`inst/extdata/models/`)
+  - Falls back to development directory and backward-compatible locations
+  - Provides clear error messages with download instructions
+
+- Added `get_models_dir()` function to get the appropriate models directory
+  - Returns installed package location or development location
+  - Automatically creates directory if it doesn't exist
+
+## Improvements
+
+- Improved model storage organization
+  - Pre-trained models now stored in `inst/extdata/models/` following R package conventions
+  - Makes vignettes portable and ensures models work in installed packages
+  - Updated `download_model()` to use package-appropriate locations by default
+
+- Updated all vignettes to use `find_model()` for model loading
+  - Ensures examples work correctly after package installation
+  - Better error messages when models are not found
+
+- Updated `.Rbuildignore` to exclude legacy `models/` directory
 
 ## Bug Fixes
 

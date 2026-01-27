@@ -62,14 +62,14 @@ For full fine-tuning (freeze_backbone=FALSE):
 }
 }
 \examples{
-\dontshow{if (requireNamespace("transformers")) withAutoprint(\{ # examplesIf}
+\dontrun{
 # Explicit num_labels
 clf <- classifier(num_labels = 2)
 
 # Infer from data
 data <- tibble::tibble(text = c("a", "b"), label = c("high", "low"))
 clf <- classifier(data = data, label_col = label)
-\dontshow{\}) # examplesIf}
+}
 }
 \seealso{
 \code{\link{train}}, \code{\link{predict}}

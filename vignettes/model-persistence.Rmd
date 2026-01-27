@@ -60,7 +60,7 @@ save_classifier(clf, "models/emotion_clf")
 # models/emotion_clf_config.rds   <- R configuration
 
 # Later, in a new R session:
-clf <- load_classifier("models/emotion_clf")
+clf <- load_classifier(find_model("emotion_clf"))
 
 # Predictions work!
 test_data <- emotion_sample |> slice_sample(n = 100)
