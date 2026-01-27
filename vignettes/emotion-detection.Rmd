@@ -17,6 +17,18 @@ knitr::opts_chunk$set(
   warning = FALSE,
   message = FALSE
 )
+
+# Check if pre-trained models are available by directly checking file existence
+models_available <- tryCatch({
+  # Check in inst/extdata/models (for installed package)
+  pkg_models_dir <- system.file("extdata", "models", package = "graniteR")
+  if (nzchar(pkg_models_dir)) {
+    file.exists(file.path(pkg_models_dir, "emotion_standard_config.rds")) &&
+    file.exists(file.path(pkg_models_dir, "emotion_moe_config.rds"))
+  } else {
+    FALSE
+  }
+}, error = function(e) FALSE)
 ```
 
 ## Introduction
@@ -121,13 +133,13 @@ The classification head is trained while keeping the pretrained Granite model fr
 
 For this vignette, we load a pre-trained model. The `find_model()` function automatically locates the model in the package or your local download directory:
 
-```{r load-model-standard, eval=TRUE}
+```{r load-model-standard, eval=models_available}
 clf_standard <- load_classifier(find_model("emotion_standard"))
 ```
 
 ## Making Predictions
 
-```{r predictions-standard}
+```{r predictions-standard, eval=models_available}
 pred_standard <- predict(
   clf_standard,
   test_data,
@@ -148,14 +160,14 @@ pred_standard |>
 
 ## Model Evaluation
 
-```{r metrics-standard}
+```{r metrics-standard, eval=models_available}
 accuracy_standard <- mean(pred_standard$prediction == pred_standard$label)
 cat(sprintf("Standard Classifier Accuracy: %.2f%%\n", accuracy_standard * 100))
 ```
 
 ### Confusion Matrix
 
-```{r confusion-matrix-standard, fig.height=6, fig.width=7}
+```{r confusion-matrix-standard, fig.height=6, fig.width=7, eval=models_available}
 emotion_names <- c("sadness", "joy", "love", "anger", "fear", "surprise")
 
 conf_matrix_std <- pred_standard |>
@@ -215,13 +227,13 @@ save_classifier(clf_moe, file = "models/emotion_moe")
 
 ## Loading Pre-trained MoE Model
 
-```{r load-model-moe, eval=TRUE}
+```{r load-model-moe, eval=models_available}
 clf_moe <- load_classifier(find_model("emotion_moe"))
 ```
 
 ## Making Predictions
 
-```{r predictions-moe}
+```{r predictions-moe, eval=models_available}
 pred_moe <- predict(
   clf_moe,
   test_data,
@@ -242,14 +254,14 @@ pred_moe |>
 
 ## Model Evaluation
 
-```{r metrics-moe}
+```{r metrics-moe, eval=models_available}
 accuracy_moe <- mean(pred_moe$prediction == pred_moe$label)
 cat(sprintf("MoE Classifier Accuracy: %.2f%%\n", accuracy_moe * 100))
 ```
 
 ### Confusion Matrix
 
-```{r confusion-matrix-moe, fig.height=6, fig.width=7}
+```{r confusion-matrix-moe, fig.height=6, fig.width=7, eval=models_available}
 conf_matrix_moe <- pred_moe |>
   mutate(
     true_label = emotion_names[label + 1],
@@ -278,7 +290,7 @@ conf_matrix_moe <- pred_moe |>
 
 # Comparing Approaches
 
-```{r comparison}
+```{r comparison, eval=models_available}
 comparison <- data.frame(
   Approach = c("Standard Classifier", "MoE Classifier"),
   Accuracy = c(accuracy_standard, accuracy_moe),
