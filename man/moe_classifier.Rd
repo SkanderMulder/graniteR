@@ -14,7 +14,8 @@ moe_classifier(
   freeze_backbone = FALSE,
   hidden_dim = NULL,
   dropout = 0.2,
-  expert_depth = 2
+  expert_depth = 2,
+  trust_remote_code = FALSE
 )
 }
 \arguments{
@@ -37,6 +38,9 @@ moe_classifier(
 \item{dropout}{Dropout probability for expert networks (default: 0.2)}
 
 \item{expert_depth}{Number of layers per expert network (default: 2)}
+
+\item{trust_remote_code}{Whether to trust remote code from Hugging Face (default: FALSE).
+Set to TRUE for models with custom code like perplexity-ai/pplx-embed-v1-0.6b.}
 }
 \value{
 A MoE classifier object with model and tokenizer
@@ -79,6 +83,14 @@ clf_binary <- moe_classifier(num_labels = 2, num_experts = 3)
 # Infer from data
 data <- tibble::tibble(text = c("a", "b", "c"), label = c("joy", "sad", "angry"))
 clf <- moe_classifier(data = data, label_col = label)
+
+# Use model with custom code
+clf <- moe_classifier(
+  num_labels = 6,
+  num_experts = 6,
+  model_name = "perplexity-ai/pplx-embed-v1-0.6b",
+  trust_remote_code = TRUE
+)
 }
 }
 \seealso{

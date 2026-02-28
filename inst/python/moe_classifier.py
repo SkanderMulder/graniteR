@@ -28,6 +28,7 @@ class MoEEmotionClassifier(nn.Module):
         hidden_dim: Hidden dimension for expert networks (default: backbone_size)
         dropout: Dropout probability for expert networks (default: 0.2)
         expert_depth: Number of layers per expert (default: 2)
+        trust_remote_code: Whether to trust remote code (default: False)
 
     Note:
         MoE typically works best with freeze_backbone=False for multi-class tasks.
@@ -42,11 +43,12 @@ class MoEEmotionClassifier(nn.Module):
         freeze_backbone=False,
         hidden_dim=None,
         dropout=0.2,
-        expert_depth=2
+        expert_depth=2,
+        trust_remote_code=False
     ):
         super().__init__()
 
-        self.backbone = AutoModel.from_pretrained(model_name)
+        self.backbone = AutoModel.from_pretrained(model_name, trust_remote_code=trust_remote_code)
         self.freeze_backbone = freeze_backbone
         self.num_experts = num_experts
         self.num_classes = num_classes
@@ -226,11 +228,12 @@ class MoETextClassifier(nn.Module):
         num_classes=2,
         freeze_backbone=True,
         hidden_dim=None,
-        dropout=0.1
+        dropout=0.1,
+        trust_remote_code=False
     ):
         super().__init__()
 
-        self.backbone = AutoModel.from_pretrained(model_name)
+        self.backbone = AutoModel.from_pretrained(model_name, trust_remote_code=trust_remote_code)
         self.freeze_backbone = freeze_backbone
         self.num_experts = num_experts
         self.num_classes = num_classes

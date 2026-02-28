@@ -4,10 +4,16 @@
 \alias{granite_tokenizer}
 \title{Create a Granite tokenizer}
 \usage{
-granite_tokenizer(model_name = "ibm-granite/granite-embedding-english-r2")
+granite_tokenizer(
+  model_name = "ibm-granite/granite-embedding-english-r2",
+  trust_remote_code = FALSE
+)
 }
 \arguments{
 \item{model_name}{Model identifier from Hugging Face Hub}
+
+\item{trust_remote_code}{Whether to trust remote code from Hugging Face (default: FALSE).
+Set to TRUE for models with custom code like perplexity-ai/pplx-embed-v1-0.6b.}
 }
 \value{
 A Granite tokenizer object

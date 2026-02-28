@@ -7,7 +7,7 @@ check_model <- function(model) {
 }
 
 # Load model from Hugging Face with retry logic to handle connection issues
-load_model_with_retry <- function(model_name, task, num_labels = NULL, max_retries = 5) {
+load_model_with_retry <- function(model_name, task, num_labels = NULL, trust_remote_code = FALSE, max_retries = 5) {
   for (attempt in seq_len(max_retries)) {
     tryCatch({
       # Clear any stale HTTP connections
@@ -18,20 +18,72 @@ load_model_with_retry <- function(model_name, task, num_labels = NULL, max_retri
 
       model <- switch(
         task,
-        embedding = transformers$AutoModel$from_pretrained(model_name),
+        embedding = transformers$AutoModel$from_pretrained(
+          model_name,
+          trust_remote_code = trust_remote_code
+        ),
         classification = {
           if (is.null(num_labels)) {
             stop("num_labels must be specified for classification tasks")
           }
-          transformers$AutoModelForSequenceClassification$from_pretrained(
-            model_name,
-            num_labels = as.integer(num_labels)
-          )
+
+          # Try standard sequence classification first
+          tryCatch({
+            transformers$AutoModelForSequenceClassification$from_pretrained(
+              model_name,
+              num_labels = as.integer(num_labels),
+              trust_remote_code = trust_remote_code
+            )
+          }, error = function(e) {
+            error_msg <- conditionMessage(e)
+
+            # Check if error is about trust_remote_code
+            if (grepl("trust_remote_code", error_msg, ignore.case = TRUE)) {
+              stop(
+                "Model '", model_name, "' contains custom code that requires trust.\n",
+                "Please set trust_remote_code = TRUE:\n",
+                "  classifier(num_labels = ", num_labels, ", model_name = \"", model_name, "\", trust_remote_code = TRUE)",
+                call. = FALSE
+              )
+            }
+
+            # If that fails, try using base model with custom classification head
+            cli::cli_alert_info("Using embedding model with custom classification head")
+            base_model <- tryCatch({
+              transformers$AutoModel$from_pretrained(
+                model_name,
+                trust_remote_code = trust_remote_code
+              )
+            }, error = function(e2) {
+              error_msg2 <- conditionMessage(e2)
+              if (grepl("trust_remote_code", error_msg2, ignore.case = TRUE)) {
+                stop(
+                  "Model '", model_name, "' contains custom code that requires trust.\n",
+                  "Please set trust_remote_code = TRUE:\n",
+                  "  classifier(num_labels = ", num_labels, ", model_name = \"", model_name, "\", trust_remote_code = TRUE)",
+                  call. = FALSE
+                )
+              }
+              stop(e2)
+            })
+
+            # Load the custom wrapper
+            granite_utils <- reticulate::import_from_path(
+              "granite_utils",
+              system.file("python", package = "graniteR")
+            )
+
+            granite_utils$EmbeddingModelForSequenceClassification(
+              base_model,
+              num_labels = as.integer(num_labels)
+            )
+          })
         },
         regression = {
           transformers$AutoModelForSequenceClassification$from_pretrained(
             model_name,
-            num_labels = 1L
+            num_labels = 1L,
+            trust_remote_code = trust_remote_code
           )
         }
       )
@@ -64,7 +116,7 @@ load_model_with_retry <- function(model_name, task, num_labels = NULL, max_retri
 }
 
 # Load tokenizer from Hugging Face with retry logic
-load_tokenizer_with_retry <- function(model_name, max_retries = 5) {
+load_tokenizer_with_retry <- function(model_name, trust_remote_code = FALSE, max_retries = 5) {
   for (attempt in seq_len(max_retries)) {
     tryCatch({
       # Clear any stale HTTP connections
@@ -73,7 +125,10 @@ load_tokenizer_with_retry <- function(model_name, max_retries = 5) {
         Sys.sleep(min(2^(attempt - 1), 10))  # Exponential backoff, max 10s
       }
 
-      tokenizer <- transformers$AutoTokenizer$from_pretrained(model_name)
+      tokenizer <- transformers$AutoTokenizer$from_pretrained(
+        model_name,
+        trust_remote_code = trust_remote_code
+      )
       return(tokenizer)
     }, error = function(e) {
       error_msg <- conditionMessage(e)

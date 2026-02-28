@@ -111,7 +111,11 @@ cat(sprintf("Testing samples: %s\n", comma(nrow(test_data))))
 ## Training
 
 ```{r training-standard, eval=FALSE}
-clf_standard <- classifier(num_labels = 6)
+clf_standard <- classifier(
+  num_labels = 6,
+  model_name = "perplexity-ai/pplx-embed-v1-0.6b",
+  trust_remote_code = TRUE
+)
 
 clf_standard <- clf_standard |>
   train(
@@ -206,9 +210,11 @@ The MoE approach uses multiple specialized expert networks with a gating mechani
 clf_moe <- moe_classifier(
   num_labels = 6,
   num_experts = 6,
+  model_name = "perplexity-ai/pplx-embed-v1-0.6b",
   freeze_backbone = FALSE,
   dropout = 0.2,
-  expert_depth = 2
+  expert_depth = 2,
+  trust_remote_code = TRUE
 )
 
 clf_moe <- train_moe(

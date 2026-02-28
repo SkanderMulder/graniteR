@@ -17,6 +17,8 @@
 #' @param freeze_backbone Whether to freeze the pretrained backbone (default: TRUE).
 #'   Set to FALSE for full fine-tuning which may improve accuracy but requires more
 #'   compute, time, and careful learning rate tuning.
+#' @param trust_remote_code Whether to trust remote code from Hugging Face (default: FALSE).
+#'   Set to TRUE for models with custom code like perplexity-ai/pplx-embed-v1-0.6b.
 #' @return A classifier object with model and tokenizer
 #' @details
 #' By default, the classifier uses a frozen pretrained model with only the classification
@@ -46,6 +48,13 @@
 #' # Infer from data
 #' data <- tibble::tibble(text = c("a", "b"), label = c("high", "low"))
 #' clf <- classifier(data = data, label_col = label)
+#'
+#' # Use model with custom code
+#' clf <- classifier(
+#'   num_labels = 6,
+#'   model_name = "perplexity-ai/pplx-embed-v1-0.6b",
+#'   trust_remote_code = TRUE
+#' )
 #' }
 classifier <- function(
   num_labels = NULL,
@@ -53,7 +62,8 @@ classifier <- function(
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
   device = NULL,
-  freeze_backbone = TRUE
+  freeze_backbone = TRUE,
+  trust_remote_code = FALSE
 ) {
   device_was_null <- is.null(device)
   if (device_was_null) {
@@ -81,7 +91,8 @@ classifier <- function(
     model_name = model_name,
     task = "classification",
     num_labels = num_labels,
-    device = device
+    device = device,
+    trust_remote_code = trust_remote_code
   )
 
   if (!freeze_backbone) {
@@ -91,7 +102,7 @@ classifier <- function(
     cli::cli_alert_info("Unfroze all model parameters for full fine-tuning")
   }
 
-  tokenizer <- granite_tokenizer(model_name)
+  tokenizer <- granite_tokenizer(model_name, trust_remote_code = trust_remote_code)
 
   all_params <- reticulate::iterate(model$model$parameters())
   trainable_params <- sum(sapply(all_params, function(p) as.logical(p$requires_grad)))

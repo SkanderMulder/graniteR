@@ -8,7 +8,8 @@ granite_model(
   model_name = "ibm-granite/granite-embedding-english-r2",
   task = c("embedding", "classification", "regression"),
   num_labels = NULL,
-  device = "cpu"
+  device = "cpu",
+  trust_remote_code = FALSE
 )
 }
 \arguments{
@@ -19,6 +20,9 @@ granite_model(
 \item{num_labels}{Number of output labels for classification}
 
 \item{device}{Device to use ("cpu" or "cuda")}
+
+\item{trust_remote_code}{Whether to trust remote code from Hugging Face (default: FALSE).
+Set to TRUE for models with custom code like perplexity-ai/pplx-embed-v1-0.6b.}
 }
 \value{
 A Granite model object
@@ -33,6 +37,14 @@ model <- granite_model()
 
 # Create a classification model
 model <- granite_model(task = "classification", num_labels = 3)
+
+# Create a model with custom code
+model <- granite_model(
+  model_name = "perplexity-ai/pplx-embed-v1-0.6b",
+  task = "classification",
+  num_labels = 6,
+  trust_remote_code = TRUE
+)
 }
 }
 \seealso{

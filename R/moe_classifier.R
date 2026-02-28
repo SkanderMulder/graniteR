@@ -14,6 +14,8 @@
 #' @param hidden_dim Hidden dimension for expert networks (default: backbone_size)
 #' @param dropout Dropout probability for expert networks (default: 0.2)
 #' @param expert_depth Number of layers per expert network (default: 2)
+#' @param trust_remote_code Whether to trust remote code from Hugging Face (default: FALSE).
+#'   Set to TRUE for models with custom code like perplexity-ai/pplx-embed-v1-0.6b.
 #' @return A MoE classifier object with model and tokenizer
 #'
 #' @details
@@ -51,6 +53,14 @@
 #' # Infer from data
 #' data <- tibble::tibble(text = c("a", "b", "c"), label = c("joy", "sad", "angry"))
 #' clf <- moe_classifier(data = data, label_col = label)
+#'
+#' # Use model with custom code
+#' clf <- moe_classifier(
+#'   num_labels = 6,
+#'   num_experts = 6,
+#'   model_name = "perplexity-ai/pplx-embed-v1-0.6b",
+#'   trust_remote_code = TRUE
+#' )
 #' }
 moe_classifier <- function(
   num_labels = NULL,
@@ -62,7 +72,8 @@ moe_classifier <- function(
   freeze_backbone = FALSE,
   hidden_dim = NULL,
   dropout = 0.2,
-  expert_depth = 2
+  expert_depth = 2,
+  trust_remote_code = FALSE
 ) {
   device_was_null <- is.null(device)
   if (device_was_null) {
@@ -106,7 +117,8 @@ moe_classifier <- function(
       num_classes = as.integer(num_labels),
       freeze_backbone = freeze_backbone,
       hidden_dim = if (is.null(hidden_dim)) NULL else as.integer(hidden_dim),
-      dropout = dropout
+      dropout = dropout,
+      trust_remote_code = trust_remote_code
     )
   } else {
     moe_module$MoEEmotionClassifier(
@@ -116,12 +128,13 @@ moe_classifier <- function(
       freeze_backbone = freeze_backbone,
       hidden_dim = if (is.null(hidden_dim)) NULL else as.integer(hidden_dim),
       dropout = dropout,
-      expert_depth = as.integer(expert_depth)
+      expert_depth = as.integer(expert_depth),
+      trust_remote_code = trust_remote_code
     )
   }
 
   model$to(device)
-  tokenizer <- granite_tokenizer(model_name)
+  tokenizer <- granite_tokenizer(model_name, trust_remote_code = trust_remote_code)
 
   all_params <- reticulate::iterate(model$parameters())
   trainable_params <- sum(sapply(all_params, function(p) as.logical(p$requires_grad)))

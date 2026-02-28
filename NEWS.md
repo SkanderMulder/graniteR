@@ -1,3 +1,12 @@
+# graniteR 0.1.2
+
+## New Features
+
+- Added `trust_remote_code` parameter to `moe_classifier()` function
+  - Enables MoE classifiers to use models with custom code like perplexity-ai/pplx-embed-v1-0.6b
+  - Consistent with `classifier()` function interface
+  - Updated emotion-detection vignette to demonstrate usage with perplexity model
+
 # graniteR 0.1.1
 
 ## Breaking Changes
@@ -7,6 +16,12 @@
   - Users should use `classifier()` or `moe_classifier()` for current classification tasks
 
 ## New Features
+
+- Added support for custom Hugging Face models with `trust_remote_code` parameter
+  - New parameter in `classifier()`, `moe_classifier()`, `granite_model()`, and `granite_tokenizer()`
+  - Enables use of models like perplexity-ai/pplx-embed-v1-0.6b that contain custom code
+  - Automatically falls back to custom classification head for embedding-only models
+  - Custom wrapper (`EmbeddingModelForSequenceClassification`) adds classification capability to embedding models
 
 - Added `find_model()` function to locate pre-trained models
   - Automatically searches in package installation directory (`inst/extdata/models/`)
@@ -18,6 +33,11 @@
   - Automatically creates directory if it doesn't exist
 
 ## Improvements
+
+- Improved error messages for models requiring `trust_remote_code`
+  - Clear, actionable error message when attempting to use models with custom code
+  - Shows exact command needed to fix the issue
+  - Prevents confusing Python error messages from reaching users
 
 - Improved model storage organization
   - Pre-trained models now stored in `inst/extdata/models/` following R package conventions

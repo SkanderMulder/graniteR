@@ -10,7 +10,8 @@ classifier(
   label_col = NULL,
   model_name = "ibm-granite/granite-embedding-english-r2",
   device = NULL,
-  freeze_backbone = TRUE
+  freeze_backbone = TRUE,
+  trust_remote_code = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,9 @@ If NULL and data is provided, will be inferred from unique labels.}
 \item{freeze_backbone}{Whether to freeze the pretrained backbone (default: TRUE).
 Set to FALSE for full fine-tuning which may improve accuracy but requires more
 compute, time, and careful learning rate tuning.}
+
+\item{trust_remote_code}{Whether to trust remote code from Hugging Face (default: FALSE).
+Set to TRUE for models with custom code like perplexity-ai/pplx-embed-v1-0.6b.}
 }
 \value{
 A classifier object with model and tokenizer
@@ -69,6 +73,13 @@ clf <- classifier(num_labels = 2)
 # Infer from data
 data <- tibble::tibble(text = c("a", "b"), label = c("high", "low"))
 clf <- classifier(data = data, label_col = label)
+
+# Use model with custom code
+clf <- classifier(
+  num_labels = 6,
+  model_name = "perplexity-ai/pplx-embed-v1-0.6b",
+  trust_remote_code = TRUE
+)
 }
 }
 \seealso{
