@@ -152,7 +152,9 @@ moe_classifier <- function(
       num_experts = num_experts,
       device = device,
       is_trained = FALSE,
-      model_type = "moe"
+      model_type = "moe",
+      freeze_backbone = freeze_backbone,
+      trust_remote_code = trust_remote_code
     ),
     class = c("moe_classifier", "granite_classifier", "granite_model")
   )

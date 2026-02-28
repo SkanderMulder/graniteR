@@ -95,7 +95,8 @@ TEST_RESULTS.md
 test_*.R
 
 # Trained models (too large for git/CRAN)
-models/
+# Only ignore models/ in root directory, not inst/extdata/models/
+/models/
 
 # Planning and non-essential files
 .plans/

@@ -119,7 +119,8 @@ classifier <- function(
       tokenizer = tokenizer,
       num_labels = num_labels,
       is_trained = FALSE,
-      freeze_backbone = freeze_backbone
+      freeze_backbone = freeze_backbone,
+      trust_remote_code = trust_remote_code
     ),
     class = c("classifier", "granite_classifier", "granite_model")
   )

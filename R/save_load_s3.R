@@ -80,6 +80,7 @@ save_classifier_impl <- function(classifier, file) {
     num_labels = classifier$num_labels,
     model_name = classifier$tokenizer$model_name,
     freeze_backbone = classifier$freeze_backbone %||% TRUE,
+    trust_remote_code = classifier$trust_remote_code %||% FALSE,
     device = device,
     is_trained = classifier$is_trained
   )
@@ -205,14 +206,16 @@ load_classifier <- function(file, device = NULL) {
       num_experts = config$num_experts,
       model_name = config$model_name,
       device = device,
-      freeze_backbone = config$freeze_backbone
+      freeze_backbone = config$freeze_backbone,
+      trust_remote_code = config$trust_remote_code %||% FALSE
     )
   } else {
     clf <- classifier(
       num_labels = config$num_labels,
       model_name = config$model_name,
       device = device,
-      freeze_backbone = config$freeze_backbone
+      freeze_backbone = config$freeze_backbone,
+      trust_remote_code = config$trust_remote_code %||% FALSE
     )
   }
 
