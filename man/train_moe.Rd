@@ -11,6 +11,7 @@ train_moe(
   label_col,
   epochs = 3,
   batch_size = 8,
+  accumulation_steps = 1,
   learning_rate = 5e-05,
   validation_split = 0.2,
   verbose = TRUE
@@ -27,7 +28,11 @@ train_moe(
 
 \item{epochs}{Number of training epochs}
 
-\item{batch_size}{Batch size for training}
+\item{batch_size}{Batch size for training (use small values with accumulation)}
+
+\item{accumulation_steps}{Number of batches to accumulate gradients before updating.
+Effective batch size = batch_size × accumulation_steps. Use for large datasets
+to avoid CUDA OOM errors while maintaining large effective batch sizes. Default: 1.}
 
 \item{learning_rate}{Learning rate for optimizer}
 

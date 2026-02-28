@@ -19,14 +19,10 @@ cat(sprintf("Total: %s rows (%s benign, %s malicious)\n\n",
             format(sum(malicious_prompts_full$label == 0), big.mark = ","),
             format(sum(malicious_prompts_full$label == 1), big.mark = ",")))
 
-# Sample dataset (stratified)
-sample_size <- 5000  # Adjust for speed vs accuracy
-cat(sprintf("Sampling %s balanced examples...\n", format(sample_size, big.mark = ",")))
+# Use ALL data with gradient accumulation for scalability
+cat("Using full dataset (no sampling)...\n")
 
 data_sample <- malicious_prompts_full |>
-  group_by(label) |>
-  sample_n(min(sample_size/2, n())) |>
-  ungroup() |>
   select(text, label)
 
 # Train/test split
@@ -39,8 +35,9 @@ cat(sprintf("Train: %s | Test: %s\n\n",
             format(nrow(train_data), big.mark = ","),
             format(nrow(test_data), big.mark = ",")))
 
-# Train MoE model
-cat("Training MoE classifier...\n\n")
+# Train MoE model with gradient accumulation for memory efficiency
+cat("Training MoE classifier with gradient accumulation...\n")
+cat("Effective batch size: 4 × 8 accumulation steps = 32\n\n")
 
 clf_moe <- moe_classifier(
   num_labels = 2,
@@ -50,16 +47,20 @@ clf_moe <- moe_classifier(
   dropout = 0.2,
   expert_depth = 2,
   trust_remote_code = TRUE
-) |>
-  train_moe(
-    train_data,
-    text,
-    label,
-    epochs = 3,
-    batch_size = 16,
-    learning_rate = 2e-5,
-    validation_split = 0.2
-  )
+)
+
+# Train with small batch size + gradient accumulation
+clf_moe <- train_moe(
+  clf_moe,
+  train_data,
+  text,
+  label,
+  epochs = 3,
+  batch_size = 4,              # Small to fit in GPU
+  accumulation_steps = 8,      # Accumulate 8 batches (effective=32)
+  learning_rate = 2e-5,
+  validation_split = 0.2
+)
 
 # Evaluate
 cat("\nEvaluating on test set...\n")

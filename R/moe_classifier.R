@@ -171,7 +171,10 @@ moe_classifier <- function(
 #' @param text_col Column name containing text (unquoted or string)
 #' @param label_col Column name containing labels (unquoted or string)
 #' @param epochs Number of training epochs
-#' @param batch_size Batch size for training
+#' @param batch_size Batch size for training (use small values with accumulation)
+#' @param accumulation_steps Number of batches to accumulate gradients before updating.
+#'   Effective batch size = batch_size × accumulation_steps. Use for large datasets
+#'   to avoid CUDA OOM errors while maintaining large effective batch sizes. Default: 1.
 #' @param learning_rate Learning rate for optimizer
 #' @param validation_split Fraction of data to use for validation
 #' @param verbose Whether to print training progress (default: TRUE)
@@ -208,6 +211,7 @@ train_moe <- function(
   label_col,
   epochs = 3,
   batch_size = 8,
+  accumulation_steps = 1,
   learning_rate = 5e-5,
   validation_split = 0.2,
   verbose = TRUE
@@ -241,7 +245,11 @@ train_moe <- function(
   model$train()
 
   if (verbose) {
+    effective_batch_size <- batch_size * accumulation_steps
     cli::cli_alert_info("Training MoE with {classifier$num_experts} experts on {length(train_texts)} samples, validating on {length(val_texts)} samples")
+    if (accumulation_steps > 1) {
+      cli::cli_alert_info("Gradient accumulation: {accumulation_steps} steps (effective batch size: {effective_batch_size})")
+    }
   }
 
   training_start_time <- Sys.time()
@@ -290,20 +298,31 @@ train_moe <- function(
         labels_tensor <- torch$tensor(as.integer(train_labels[start_idx:end_idx]))
         moved <- to_device(encodings, labels_tensor, classifier$device)
 
-        optimizer$zero_grad()
+        # Zero gradients at start of accumulation cycle
+        if ((i - 1) %% accumulation_steps == 0) {
+          optimizer$zero_grad()
+        }
+
         outputs <- model(
           input_ids = moved$encodings$input_ids,
           attention_mask = moved$encodings$attention_mask,
           labels = moved$labels
         )
 
-        outputs$loss$backward()
-        optimizer$step()
+        # Scale loss by accumulation steps for proper gradient averaging
+        scaled_loss <- outputs$loss / accumulation_steps
+        scaled_loss$backward()
+
+        # Update weights after accumulating gradients
+        if (i %% accumulation_steps == 0 || i == n_batches) {
+          optimizer$step()
+        }
+
         total_loss <- total_loss + outputs$loss$item()
         total_cls_loss <- total_cls_loss + outputs$classification_loss$item()
         total_lb_loss <- total_lb_loss + outputs$load_balance_loss$item()
 
-        rm(outputs, moved, encodings, labels_tensor)
+        rm(outputs, moved, encodings, labels_tensor, scaled_loss)
         gc(verbose = FALSE)
 
         batch_counter <- batch_counter + 1

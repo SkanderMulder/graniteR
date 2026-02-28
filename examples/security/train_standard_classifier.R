@@ -19,14 +19,10 @@ cat(sprintf("Total: %s rows (%s benign, %s malicious)\n\n",
             format(sum(malicious_prompts_full$label == 0), big.mark = ","),
             format(sum(malicious_prompts_full$label == 1), big.mark = ",")))
 
-# Sample dataset (stratified)
-sample_size <- 5000  # Adjust for speed vs accuracy
-cat(sprintf("Sampling %s balanced examples...\n", format(sample_size, big.mark = ",")))
+# Use ALL data with gradient accumulation
+cat("Using full dataset (no sampling)...\n")
 
 data_sample <- malicious_prompts_full |>
-  group_by(label) |>
-  sample_n(min(sample_size/2, n())) |>
-  ungroup() |>
   select(text, label)
 
 # Train/test split
@@ -39,8 +35,9 @@ cat(sprintf("Train: %s | Test: %s\n\n",
             format(nrow(train_data), big.mark = ","),
             format(nrow(test_data), big.mark = ",")))
 
-# Train model
-cat("Training standard classifier...\n\n")
+# Train model with gradient accumulation
+cat("Training standard classifier with gradient accumulation...\n")
+cat("Effective batch size: 8 × 8 accumulation steps = 64\n\n")
 
 clf <- classifier(
   num_labels = 2,
@@ -52,7 +49,8 @@ clf <- classifier(
     text,
     label,
     epochs = 3,
-    batch_size = 64,
+    batch_size = 8,             # Small to fit in GPU
+    accumulation_steps = 8,     # Accumulate 8 batches (effective=64)
     learning_rate = 2e-4,
     validation_split = 0.2
   )
